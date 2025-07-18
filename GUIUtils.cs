@@ -25,7 +25,7 @@ namespace CamMod
             Rect? manualRect = null,
             params GUILayoutOption[] options)
         {
-            Rect rect = manualRect ?? GUILayoutUtility.GetRect(120f, 12f, options);
+            Rect rect = manualRect ?? GUILayoutUtility.GetRect(0.0f, 12f, options);
             DrawTexture(rect, backgroundTex, radius);
             float num = Mathf.InverseLerp(min, max, value);
             DrawTexture(new Rect(rect.x, rect.y, rect.width * num, rect.height), fillTex, radius);
