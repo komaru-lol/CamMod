@@ -1226,8 +1226,8 @@ namespace CamMod
 
         private static Vector3 SmoothPosition(Vector3 current, Vector3 target, float deltaTime)
         {
-            float smoothSpeed = deltaTime * 12f / Mathf.Max(_smoothing, 0.01f);
-            float dampingFactor = Mathf.Clamp01(1f - Mathf.Exp(-smoothSpeed));
+            float smoothSpeed = Mathf.Lerp(2f, 30f, 1f - Mathf.Clamp01(_smoothing / 1.5f));
+            float dampingFactor = Mathf.Clamp01(1f - Mathf.Exp(-smoothSpeed * deltaTime));
 
             switch (_smoothingType)
             {
@@ -1259,51 +1259,36 @@ namespace CamMod
 
         private static Quaternion SmoothRotation(Quaternion current, Quaternion target, float deltaTime)
         {
-            float smoothSpeed = deltaTime * 12f / Mathf.Max(_smoothing, 0.01f);
-            float dampingFactor = Mathf.Clamp01(1f - Mathf.Exp(-smoothSpeed));
+            float smoothSpeed = Mathf.Lerp(2f, 30f, 1f - Mathf.Clamp01(_smoothing / 1.5f));
+            float dampingFactor = Mathf.Clamp01(1f - Mathf.Exp(-smoothSpeed * deltaTime));
 
             switch (_smoothingType)
             {
-                case 1: // Lerp
+                case 1:
                     return Quaternion.Lerp(current, target, dampingFactor);
-
-                case 2: // Slerp
+                case 2:
                     return Quaternion.Slerp(current, target, dampingFactor);
-
-                case 3: // Lerp + Slerp blend
+                case 3:
                     return Quaternion.Lerp(current, Quaternion.Slerp(current, target, dampingFactor), dampingFactor);
-
-                case 4: // Double Slerp (ease-like)
+                case 4:
                     return Quaternion.Slerp(Quaternion.Slerp(current, target, 0.5f), target, dampingFactor);
-
-                case 5: // Critically damped spring (angle-based)
-                {
+                case 5:
                     float angle = Quaternion.Angle(current, target);
                     if (angle < 0.01f) return target;
-
                     Vector3 axis;
                     Quaternion deltaRot = target * Quaternion.Inverse(current);
                     deltaRot.ToAngleAxis(out angle, out axis);
                     return Quaternion.AngleAxis(angle * dampingFactor, axis) * current;
-                }
-
-                case 6: // Eased interpolation (custom curve)
-                {
+                case 6:
                     float eased = EasingCurve.Evaluate(dampingFactor);
                     return Quaternion.Slerp(current, target, eased);
-                }
-
-                case 7: // Snap if close, else Slerp
-                {
-                    float angle = Quaternion.Angle(current, target);
-                    if (angle < 1f)
+                case 7:
+                    float a = Quaternion.Angle(current, target);
+                    if (a < 1f)
                         return target;
                     return Quaternion.Slerp(current, target, dampingFactor);
-                }
-
-                case 8: // Squad interpolation
+                case 8:
                     return Squad(dampingFactor, current, current, target, target);
-
                 default:
                     return target;
             }
