@@ -1093,32 +1093,27 @@ namespace CamMod
 
         private static void LabelSlider(string label, ref float value, float min, float max)
         {
-            GUILayout.BeginHorizontal();
             GUILayout.Label($"{label}: {value:F2}", new GUIStyle(GUI.skin.label)
             {
                 normal = { textColor = _labelTextColor },
                 fontStyle = FontStyle.Bold,
             }, GUILayout.Width(120f));
             value = GUIUtils.RoundedSlider(value, min, max, _sliderBackground, _sliderFill);
-            GUILayout.EndHorizontal();
         }
         
         
         private static void LabelSlider2(string label, ref float value, float min, float max)
         {
-            GUILayout.BeginHorizontal();
             GUILayout.Label($"{label}", new GUIStyle(GUI.skin.label)
             {
                 normal = { textColor = _labelTextColor },
                 fontStyle = FontStyle.Bold,
             }, GUILayout.Width(120f));
             value = GUIUtils.RoundedSlider(value, min, max, _sliderBackground, _sliderFill);
-            GUILayout.EndHorizontal();
         }
 
         private static void LabelSliderOffsets(string label, ref float value, float min, float max)
         {
-            GUILayout.BeginHorizontal();
             GUILayout.Label(label,new GUIStyle(GUI.skin.label)
             {
                 normal = { textColor = _labelTextColor },
@@ -1130,7 +1125,6 @@ namespace CamMod
                 normal = { textColor = _labelTextColor },
                 fontStyle = FontStyle.Bold,
             }, GUILayout.Width(40f));
-            GUILayout.EndHorizontal();
         }
         
         private static void ChangeName(string name)
