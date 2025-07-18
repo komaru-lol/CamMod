@@ -44,6 +44,7 @@ namespace CamMod
         private static string _tempTeam1Name;
         private static string _tempTeam2Name;
         private static string _nameChange = "";
+        private static string _configName = "";
 
         public static Camera Tpc;
         private static Camera _minimapCamera;
@@ -538,7 +539,7 @@ namespace CamMod
                 {
                     normal = { textColor = _labelTextColor },
                     fontStyle = FontStyle.Bold,
-                    alignment = TextAnchor.MiddleCenter
+                    alignment = TextAnchor.MiddleCenter,
                 };
             }
 
@@ -559,7 +560,7 @@ namespace CamMod
         private static Rect _menuForm = new Rect((Screen.width - 900f) / 2f, (Screen.height - 700f) / 2f, 900f, 700f);
         private static Rect _casterModForm = new Rect(10f, 10f, 250f, 310f);
         private static Rect _timerForm = new Rect(20f, Screen.height - 220f, 320f, 200f);
-        private static Rect _settingsForm = new Rect(Screen.width - 270f, 340f, 260f, 380f);
+        private static Rect _settingsForm = new Rect(Screen.width - 270f, 330f, 260f, 380f);
         private static Rect _scoreForm = new Rect(20f, 440f, 300f, 220f);
 
         private static void BeginMargin(ref Rect OldRect, Rect NewRect)
@@ -1011,7 +1012,7 @@ namespace CamMod
 
         private static void SettingsDisplay()
         {
-            _settingsForm = new Rect(Screen.width - 270f, 340f, 260f, 360f);
+            _settingsForm = new Rect(Screen.width - 270f, 340f, 260f, 370f);
             GUI.Box(_settingsForm, "Settings", _windowStyle);
             
             Rect paddedRect = new Rect(_settingsForm.x + 10f, _settingsForm.y + 40f, _settingsForm.width - 20f, _settingsForm.height - 50f);
@@ -1023,10 +1024,18 @@ namespace CamMod
                 _selectedConfigName = _availableConfigs[_selectedConfigIndex];
                 LoadSettings();
             }
-            GUILayout.Space(5f);
+            GUILayout.Label("Config Name:", _labelStyle);
+            _configName = GUILayout.TextField(_configName, 10, _textFieldStyle);
+
             if (GUILayout.Button("Save Settings", _buttonStyle))
-                SaveSettings();
-            
+            {
+                if (!string.IsNullOrWhiteSpace(_configName))
+                {
+                    _selectedConfigName = _configName;
+                    SaveSettings(); 
+                }
+            }
+            GUILayout.Space(5f);
             LabelSlider("FOV", ref _fov, 60f, 115f);
             LabelSlider("Smoothing", ref _smoothing, 0f, 1.5f);
             LabelSlider("Rig Lerp", ref _rigLerp, 0f, 0.5f);
@@ -1085,7 +1094,11 @@ namespace CamMod
         private static void LabelSlider(string label, ref float value, float min, float max)
         {
             GUILayout.BeginHorizontal();
-            GUILayout.Label($"{label}: {value:F2}", _labelStyle, GUILayout.Width(120f));
+            GUILayout.Label($"{label}: {value:F2}", new GUIStyle(GUI.skin.label)
+            {
+                normal = { textColor = _labelTextColor },
+                fontStyle = FontStyle.Bold,
+            }, GUILayout.Width(120f));
             value = GUIUtils.RoundedSlider(value, min, max, _sliderBackground, _sliderFill);
             GUILayout.EndHorizontal();
         }
@@ -1094,7 +1107,11 @@ namespace CamMod
         private static void LabelSlider2(string label, ref float value, float min, float max)
         {
             GUILayout.BeginHorizontal();
-            GUILayout.Label($"{label}", _labelStyle, GUILayout.Width(120f));
+            GUILayout.Label($"{label}", new GUIStyle(GUI.skin.label)
+            {
+                normal = { textColor = _labelTextColor },
+                fontStyle = FontStyle.Bold,
+            }, GUILayout.Width(120f));
             value = GUIUtils.RoundedSlider(value, min, max, _sliderBackground, _sliderFill);
             GUILayout.EndHorizontal();
         }
@@ -1102,9 +1119,17 @@ namespace CamMod
         private static void LabelSliderOffsets(string label, ref float value, float min, float max)
         {
             GUILayout.BeginHorizontal();
-            GUILayout.Label(label, _labelStyle, GUILayout.Width(20f));
+            GUILayout.Label(label,new GUIStyle(GUI.skin.label)
+            {
+                normal = { textColor = _labelTextColor },
+                fontStyle = FontStyle.Bold,
+            }, GUILayout.Width(20f));
             value = GUIUtils.RoundedSlider(value, min, max, _sliderBackground, _sliderFill);
-            GUILayout.Label(value.ToString("F1"), _labelStyle, GUILayout.Width(40f));
+            GUILayout.Label(value.ToString("F1"),new GUIStyle(GUI.skin.label)
+            {
+                normal = { textColor = _labelTextColor },
+                fontStyle = FontStyle.Bold,
+            }, GUILayout.Width(40f));
             GUILayout.EndHorizontal();
         }
         
