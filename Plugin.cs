@@ -148,6 +148,12 @@ namespace CamMod
             LoadSettings();
             
             NameTagFont = TMP_FontAsset.CreateFontAsset(Plugin.CreateFont("CamMod.Assets.nametagfont.ttf"));
+            GorillaTagger.OnPlayerSpawned(new Action(Init));
+        }
+
+        void Init()
+        {
+            new GameObject("DiscRPC").AddComponent<RpcManager>();
         }
 
         /*void OnEnable()
