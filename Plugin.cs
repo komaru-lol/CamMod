@@ -384,7 +384,7 @@ namespace CamMod
             switch (_currentTheme)
             {
                 case Theme.Dark:
-                    _windowColor = new Color(0.1f, 0.1f, 0.1f, 0.65f);
+                    _windowColor = new Color(0.1f, 0.1f, 0.1f, 0.7f);
                     _buttonColor = new Color(0.15f, 0.15f, 0.15f);
                     _textFieldColor = new Color(0.18f, 0.18f, 0.18f);
                     _sliderColor = new Color(0.2f, 0.2f, 0.2f);
@@ -393,7 +393,7 @@ namespace CamMod
                     break;
 
                 case Theme.VeryDark:
-                    _windowColor = new Color(0.05f, 0.05f, 0.05f, 0.65f);
+                    _windowColor = new Color(0.05f, 0.05f, 0.05f, 0.7f);
                     _buttonColor = new Color(0.1f, 0.1f, 0.1f);
                     _textFieldColor = new Color(0.12f, 0.12f, 0.12f);
                     _sliderColor = new Color(0.15f, 0.15f, 0.15f);
@@ -402,7 +402,7 @@ namespace CamMod
                     break;
 
                 case Theme.Space:
-                    _windowColor = new Color(0.0f, 0.0f, 0.1f, 0.65f);
+                    _windowColor = new Color(0.0f, 0.0f, 0.1f, 0.7f);
                     _buttonColor = new Color(0.0f, 0.0f, 0.2f);
                     _textFieldColor = new Color(0.05f, 0.05f, 0.25f);
                     _sliderColor = new Color(0.08f, 0.08f, 0.3f);
@@ -411,7 +411,7 @@ namespace CamMod
                     break;
 
                 case Theme.Purple:
-                    _windowColor = new Color(0.12f, 0.0f, 0.2f, 0.65f);
+                    _windowColor = new Color(0.12f, 0.0f, 0.2f, 0.7f);
                     _buttonColor = new Color(0.2f, 0.0f, 0.3f);
                     _textFieldColor = new Color(0.25f, 0.0f, 0.4f);
                     _sliderColor = new Color(0.3f, 0.0f, 0.5f);
@@ -420,7 +420,7 @@ namespace CamMod
                     break;
                 
                 case Theme.Solarized:
-                    _windowColor = new Color(0.0f, 0.17f, 0.21f, 0.65f);
+                    _windowColor = new Color(0.0f, 0.17f, 0.21f, 0.7f);
                     _buttonColor = new Color(0.01f, 0.26f, 0.31f);
                     _textFieldColor = new Color(0.02f, 0.36f, 0.41f);
                     _sliderColor = new Color(0.0f, 0.5f, 0.55f);
@@ -429,7 +429,7 @@ namespace CamMod
                     break;
 
                 case Theme.Forest:
-                    _windowColor = new Color(0.1f, 0.15f, 0.1f, 0.65f);
+                    _windowColor = new Color(0.1f, 0.15f, 0.1f, 0.7f);
                     _buttonColor = new Color(0.15f, 0.2f, 0.15f);
                     _textFieldColor = new Color(0.2f, 0.25f, 0.2f);
                     _sliderColor = new Color(0.2f, 0.3f, 0.2f);
@@ -438,7 +438,7 @@ namespace CamMod
                     break;
 
                 default:
-                    _windowColor = new Color(0.05f, 0.05f, 0.05f, 0.65f);
+                    _windowColor = new Color(0.05f, 0.05f, 0.05f, 0.7f);
                     _buttonColor = new Color(0.1f, 0.1f, 0.1f);
                     _textFieldColor = new Color(0.1f, 0.1f, 0.1f);
                     _sliderColor = new Color(0.1f, 0.1f, 0.1f);
@@ -452,10 +452,10 @@ namespace CamMod
             _buttonActiveTex = MakeRoundedTexture(12, _buttonColor * 0.9f);
             _buttonFocusedTex = MakeRoundedTexture(12,_buttonColor * 1.2f);
 
-            _textFieldNormalTex = MakeRoundedTexture(10, _textFieldColor);
-            _textFieldFocusedTex = MakeRoundedTexture(10, _textFieldColor * 1.2f);
-            _textFieldHoverTex = MakeRoundedTexture(10, _textFieldColor * 1.05f);
-            _textFieldActiveTex = MakeRoundedTexture(10, _textFieldColor * 0.95f);
+            _textFieldNormalTex = MakeRoundedTexture(8, _textFieldColor);
+            _textFieldFocusedTex = MakeRoundedTexture(8, _textFieldColor * 1.2f);
+            _textFieldHoverTex = MakeRoundedTexture(8, _textFieldColor * 1.05f);
+            _textFieldActiveTex = MakeRoundedTexture(8, _textFieldColor * 0.95f);
             
             _sliderBackground = MakeTexture(_sliderColor);
             _sliderFill = MakeTexture(_sliderThumbColor);
