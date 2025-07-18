@@ -1036,14 +1036,19 @@ namespace CamMod
                 }
             }
             GUILayout.Space(5f);
+            GUILayout.BeginHorizontal();
             LabelSlider("FOV", ref _fov, 60f, 115f);
             LabelSlider("Smoothing", ref _smoothing, 0f, 1.5f);
             LabelSlider("Rig Lerp", ref _rigLerp, 0f, 0.5f);
+            GUILayout.EndHorizontal();
             GUILayout.Space(5f);
             
+            GUILayout.BeginHorizontal();
             LabelSlider("X Offset", ref _specOffset.x, -10f, 10f);
             LabelSlider("Y Offset", ref _specOffset.y, -10f, 10f);
             LabelSlider("Z Offset", ref _specOffset.z, -10f, 10f);
+            GUILayout.EndHorizontal();
+            
             GUILayout.Space(5f);
             string labelerpp = _isHeadTracking ? "Head" : "Body";
             if (GUILayout.Button($"Tracking: {labelerpp}", _buttonStyle))
@@ -1053,11 +1058,15 @@ namespace CamMod
                 _isAutoCast = !_isAutoCast;
             if (_isAutoCast)
             {
+                GUILayout.BeginHorizontal();
                 LabelSlider("CoolDown", ref _switchCooldown, 0.1f, 3f);
+                GUILayout.EndHorizontal();
             }
             
             GUILayout.Space(5f);
+            GUILayout.BeginHorizontal();
             LabelSlider2("Time of Day", ref _dayTime, 0f, float.MaxValue);
+            GUILayout.EndHorizontal();
             GUILayout.Space(5f);
 
             if (GUILayout.Button("Smoothing Type: " + _smoothingType, _buttonStyle))
