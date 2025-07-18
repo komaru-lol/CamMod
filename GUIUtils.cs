@@ -25,10 +25,11 @@ namespace CamMod
             Rect? manualRect = null,
             params GUILayoutOption[] options)
         {
-            Rect rect = manualRect ?? GUILayoutUtility.GetRect(0.0f, 12f, options);
+            Rect rect = manualRect ?? GUILayoutUtility.GetRect(120f, 12f, options);
+            rect.y += 3f;
             DrawTexture(rect, backgroundTex, radius);
             float num = Mathf.InverseLerp(min, max, value);
-            DrawTexture(new Rect(rect.x, rect.y, rect.width * num, rect.height), fillTex, radius);
+            DrawTexture(new Rect(rect.x, rect.y + 3f, rect.width * num, rect.height), fillTex, radius);
             if ((Event.current.type == EventType.MouseDown || Event.current.type == EventType.MouseDrag) && rect.Contains(Event.current.mousePosition))
             {
                 value = Mathf.Clamp(Mathf.Lerp(min, max, (Event.current.mousePosition.x - rect.x) / rect.width), min, max);

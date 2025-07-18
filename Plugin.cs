@@ -1099,7 +1099,10 @@ namespace CamMod
                 normal = { textColor = _labelTextColor },
                 fontStyle = FontStyle.Bold,
             }, GUILayout.Width(120f));
+            GUILayout.BeginVertical();
+            GUILayout.Space(2f);
             value = GUIUtils.RoundedSlider(value, min, max, _sliderBackground, _sliderFill);
+            GUILayout.EndVertical();
             GUILayout.EndHorizontal();
         }
         
@@ -1112,7 +1115,10 @@ namespace CamMod
                 normal = { textColor = _labelTextColor },
                 fontStyle = FontStyle.Bold,
             }, GUILayout.Width(120f));
+            GUILayout.BeginVertical();
+            GUILayout.Space(2f);
             value = GUIUtils.RoundedSlider(value, min, max, _sliderBackground, _sliderFill);
+            GUILayout.EndVertical();
             GUILayout.EndHorizontal();
         }
 
@@ -1124,7 +1130,10 @@ namespace CamMod
                 normal = { textColor = _labelTextColor },
                 fontStyle = FontStyle.Bold,
             }, GUILayout.Width(20f));
+            GUILayout.BeginVertical();
+            GUILayout.Space(2f);
             value = GUIUtils.RoundedSlider(value, min, max, _sliderBackground, _sliderFill);
+            GUILayout.EndVertical();
             GUILayout.Label(value.ToString("F1"),new GUIStyle(GUI.skin.label)
             {
                 normal = { textColor = _labelTextColor },
