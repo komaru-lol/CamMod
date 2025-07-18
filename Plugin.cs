@@ -836,7 +836,7 @@ namespace CamMod
                 GUILayout.EndHorizontal();
                 GUILayout.EndVertical();
             }
-            else
+            if (_spec == null)
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
@@ -891,7 +891,7 @@ namespace CamMod
                 GUILayout.EndHorizontal();
                 GUILayout.EndVertical();
             }
-            else
+            if (_spec == null)
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
