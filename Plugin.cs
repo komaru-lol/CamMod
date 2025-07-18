@@ -676,8 +676,6 @@ namespace CamMod
                     if (!vrrig.isOfflineVRRig)
                         _playerList.Add(vrrig);
                 }
-
-                _scrollPosition = GUILayout.BeginScrollView(_scrollPosition);
         
                 int index = 1;
                 foreach (VRRig player in _playerList)
@@ -701,8 +699,6 @@ namespace CamMod
                     index++;
                     GUI.contentColor = Color.white;
                 }
-        
-                GUILayout.EndScrollView();
 
                 if (_spec != null)
                 {
