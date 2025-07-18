@@ -1100,7 +1100,7 @@ namespace CamMod
                 fontStyle = FontStyle.Bold,
             }, GUILayout.Width(120f));
             GUILayout.BeginVertical();
-            GUILayout.Space(2f);
+            GUILayout.Space(5f);
             value = GUIUtils.RoundedSlider(value, min, max, _sliderBackground, _sliderFill);
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
@@ -1116,7 +1116,7 @@ namespace CamMod
                 fontStyle = FontStyle.Bold,
             }, GUILayout.Width(120f));
             GUILayout.BeginVertical();
-            GUILayout.Space(2f);
+            GUILayout.Space(5f);
             value = GUIUtils.RoundedSlider(value, min, max, _sliderBackground, _sliderFill);
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
