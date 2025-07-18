@@ -560,7 +560,7 @@ namespace CamMod
         private static Rect _menuForm = new Rect((Screen.width - 900f) / 2f, (Screen.height - 700f) / 2f, 900f, 700f);
         private static Rect _casterModForm = new Rect(10f, 10f, 250f, 310f);
         private static Rect _timerForm = new Rect(20f, Screen.height - 220f, 320f, 200f);
-        private static Rect _settingsForm = new Rect(Screen.width - 270f, 330f, 260f, 380f);
+        private static Rect _settingsForm = new Rect(Screen.width - 270f, 330f, 260f, 390f);
         private static Rect _scoreForm = new Rect(20f, 440f, 300f, 220f);
 
         private static void BeginMargin(ref Rect OldRect, Rect NewRect)
@@ -1012,12 +1012,12 @@ namespace CamMod
 
         private static void SettingsDisplay()
         {
-            _settingsForm = new Rect(Screen.width - 270f, 340f, 260f, 370f);
+            _settingsForm = new Rect(Screen.width - 270f, 340f, 260f, 390f);
             GUI.Box(_settingsForm, "Settings", _windowStyle);
             
             Rect paddedRect = new Rect(_settingsForm.x + 10f, _settingsForm.y + 40f, _settingsForm.width - 20f, _settingsForm.height - 50f);
             GUILayout.BeginArea(paddedRect);
-            GUILayout.Space(5f);
+            GUILayout.Space(3f);
             if (GUILayout.Button("Config: " + _availableConfigs[_selectedConfigIndex], _buttonStyle))
             {
                 _selectedConfigIndex = (_selectedConfigIndex + 1) % _availableConfigs.Length;
@@ -1035,31 +1035,26 @@ namespace CamMod
                     SaveSettings(); 
                 }
             }
-            GUILayout.Space(5f);
+            GUILayout.Space(3f);
             LabelSlider("FOV", ref _fov, 60f, 115f);
             LabelSlider("Smoothing", ref _smoothing, 0f, 1.5f);
             LabelSlider("Rig Lerp", ref _rigLerp, 0f, 0.5f);
-            GUILayout.Space(5f);
-            
             LabelSlider("X Offset", ref _specOffset.x, -10f, 10f);
             LabelSlider("Y Offset", ref _specOffset.y, -10f, 10f);
             LabelSlider("Z Offset", ref _specOffset.z, -10f, 10f);
-            GUILayout.Space(5f);
+            GUILayout.Space(3f);
             string labelerpp = _isHeadTracking ? "Head" : "Body";
             if (GUILayout.Button($"Tracking: {labelerpp}", _buttonStyle))
                 _isHeadTracking = !_isHeadTracking;
-            GUILayout.Space(5f);
+            GUILayout.Space(3f);
             if (GUILayout.Button($"AutoCast: {_isAutoCast}", _buttonStyle))
                 _isAutoCast = !_isAutoCast;
             if (_isAutoCast)
             {
                 LabelSlider("CoolDown", ref _switchCooldown, 0.1f, 3f);
             }
-            
-            GUILayout.Space(5f);
             LabelSlider2("Time of Day", ref _dayTime, 0f, float.MaxValue);
-            GUILayout.Space(5f);
-
+            GUILayout.Space(3f);
             if (GUILayout.Button("Smoothing Type: " + _smoothingType, _buttonStyle))
                 _smoothingType = (_smoothingType % 8) + 1;
             
