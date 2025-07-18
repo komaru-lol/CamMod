@@ -560,7 +560,7 @@ namespace CamMod
         private static Rect _menuForm = new Rect((Screen.width - 900f) / 2f, (Screen.height - 700f) / 2f, 900f, 700f);
         private static Rect _casterModForm = new Rect(10f, 10f, 250f, 310f);
         private static Rect _timerForm = new Rect(20f, Screen.height - 220f, 320f, 200f);
-        private static Rect _settingsForm = new Rect(Screen.width - 270f, 330f, 260f, 390f);
+        private static Rect _settingsForm = new Rect(Screen.width - 280f, 330f, 260f, 390f);
         private static Rect _scoreForm = new Rect(20f, 440f, 300f, 220f);
 
         private static void BeginMargin(ref Rect OldRect, Rect NewRect)
