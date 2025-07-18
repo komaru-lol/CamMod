@@ -417,10 +417,12 @@
   <ItemGroup>
     <None Remove="Assets\Vector Sigma.ttf" />
     <None Remove="Assets\nametagfont.ttf" />
-    <EmbeddedResource Include="Assets\discord_game_sdk.dll" />
     <EmbeddedResource Include="Assets\nametagfont.ttf" />
     <None Remove="Assets\ui" />
     <None Remove="discord_game_sdk.dll" />
+    <None Remove="Assets\discord_game_sdk.dll" />
+    <None Remove="Assets\DiscordRPC.dll" />
+    <EmbeddedResource Include="Assets\DiscordRPC.dll" />
   </ItemGroup>
 
   <ItemGroup>

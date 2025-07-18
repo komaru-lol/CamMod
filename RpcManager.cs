@@ -1,68 +1,50 @@
 ﻿using System;
+using System.EnterpriseServices;
+using System.IO;
+using System.Reflection;
 using System.Threading;
-using Discord;
 using Photon.Pun;
 using UnityEngine;
 
 namespace CamMod;
 
-internal class RpcManager : MonoBehaviour
+internal class RpcManager
 {
-    private void Start()
+    private static Assembly rpcAssembly;
+    
+    public static void Init()
     {
-        Thread.Sleep(5000);
-        discord = new global::Discord.Discord(applicationID, (ulong)Discord.CreateFlags.Default);
-        time = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+        rpcAssembly = Assembly.Load(LoadEmbeddedResource("CamMod.Assets.DiscordRPC.dll"));
+        Type type = rpcAssembly.GetType("DiscordRPC.DiscordRpcClient");
+        object obj = Activator.CreateInstance(type, new object[] { "1345426711373807706" });
+        type.GetMethod("Initialize").Invoke(obj, null);
+        Type type2 = rpcAssembly.GetType("DiscordRPC.RichPresence");
+        object obj2 = Activator.CreateInstance(type2);
+        type2.GetProperty("Details").SetValue(obj2, "Using Serenity's Camera Mod");
+        type2.GetProperty("State").SetValue(obj2, "https://discord.gg/SWzPcbFZKj");
+        Type type3 = rpcAssembly.GetType("DiscordRPC.Assets");
+        object obj3 = Activator.CreateInstance(type3);
+        type3.GetProperty("LargeImageKey").SetValue(obj3, "embedded_cover");
+        type3.GetProperty("LargeImageText").SetValue(obj3, "Serenity's Camera Mod");
+        type2.GetProperty("Assets").SetValue(obj2, obj3);
+        type.GetMethod("SetPresence").Invoke(obj, new object[] { obj2 });
     }
 
-    private void Update()
+    private static byte[] LoadEmbeddedResource(string resourceName)
     {
-        try
+        byte[] array;
+        using (Stream manifestResourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
         {
-            discord.RunCallbacks();
+            if (manifestResourceStream == null)
+            {
+                throw new ArgumentException("Resource '" + resourceName + "' not found.");
+            }
+            using (MemoryStream memoryStream = new MemoryStream())
+            {
+                manifestResourceStream.CopyTo(memoryStream);
+                array = memoryStream.ToArray();
+            }
         }
-        catch
-        {
-            UnityEngine.Object.Destroy(base.gameObject);
-        }
+        return array;
     }
-
-    private void LateUpdate()
-    {
-        Discord.ActivityManager activityManager = discord.GetActivityManager();
-       
-        activity = new Activity()
-        {
-            Details = "Using Serenity's Camera Mod",
-            State = "https://discord.gg/SWzPcbFZKj"
-        };
-        activity.Assets = new ActivityAssets()
-        {
-            LargeImage = "embedded_cover",
-            LargeText = "https://discord.gg/SWzPcbFZKj",
-            SmallImage = "embedded_cover",
-            SmallText = "https://discord.gg/SWzPcbFZKj",
-        };
-        activity.Timestamps = new ActivityTimestamps()  
-        {
-            Start = time
-        };
-        activityManager.UpdateActivity(activity, delegate(Result result){});
-    }
-    
-    internal long applicationID = 1345426711373807706L;
-    
-    internal string details;
-
-    internal string largeImage;
-    
-    internal string smallImage;
-    
-    internal long time;
-    
-    internal global::Discord.Discord discord;
-    
-    internal Discord.Activity activity;
-    
-    public static int PlayerCount;
 }
