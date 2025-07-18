@@ -63,7 +63,7 @@ namespace CamMod
 							TextMeshPro textMeshPro2 = obj2.AddComponent<TextMeshPro>();
 							textMeshPro2.text = $"{fps} HZ";
 							textMeshPro2.alignment = TextAlignmentOptions.Center;
-							textMeshPro2.color = color;
+							textMeshPro2.color = color; 
 							textMeshPro2.fontSize = 1.75f;
 							textMeshPro2.font = Plugin.NameTagFont;
 
@@ -88,10 +88,9 @@ namespace CamMod
 
 		private static Color GetNameColor(VRRig rig)
 		{
-			if (rig.mainSkin.material.name.Contains("gorilla_body(Clone) (Instance)"))
-				return rig.mainSkin.material.color;
-			else
-				return new Color(1f, 0.1f, 0f);
+			return rig.mainSkin.material.name.Contains("gorilla_body(Clone) (Instance)")
+				? rig.mainSkin.material.color
+				: new Color(1f, 0.1f, 0f);
 		}
 
 		private static Color GetFpsColor(ref int fps)
