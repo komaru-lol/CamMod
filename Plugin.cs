@@ -11,6 +11,7 @@ using System.IO;
 using System.Reflection;
 using Photon.Realtime;
 using TMPro;
+using UnityEngine.UI;
 using Debug = UnityEngine.Debug;
 
 namespace CamMod
@@ -85,6 +86,8 @@ namespace CamMod
         private static bool _deletedCamera = false;
         private static bool _minimap = false;
         private static bool _isHeadTracking = false;
+        public static bool IsNameTags = false;
+        public static bool IsFpsTags = false;
         
         private static readonly Action DistanceAction = () => CloseMenu(ref _distanceDisplay);
         private static readonly Action ScoreAction = () => CloseMenu(ref _scoreDisplay);
@@ -100,6 +103,8 @@ namespace CamMod
         private static int _smoothingType = 1; 
         private static int _selectedConfigIndex = 0;
         private const int CornerRadius = 8;
+        public static int newLayer = 25;
+        public static GameObject porn;
         
         private static Color _windowColor;
         private static Color _buttonColor;
@@ -150,6 +155,7 @@ namespace CamMod
             
             NameTagFont = TMP_FontAsset.CreateFontAsset(Plugin.CreateFont("CamMod.Assets.nametagfont.ttf"));
             GorillaTagger.OnPlayerSpawned(new Action(RpcManager.Init));
+            SetupMic();
         }
 
         /*void OnEnable()
@@ -161,6 +167,60 @@ namespace CamMod
         {
             HarmonyPatches.Unpatch();
         }*/
+        
+        public static Text text;
+        private static bool ispttType = true;
+        private static GameObject GorillaComputer;
+
+        private static void SetupMic()
+        {
+            GorillaComputer = GameObject.Find("GorillaComputer");
+
+            if (GorillaComputer != null)
+            {
+                GorillaComputer.GetComponent<GorillaNetworking.GorillaComputer>().pttType = "ALL CHAT";
+                Debug.Log("Push to talk: ALL CHAT");
+            }
+            else
+            {
+                Debug.LogWarning("Push to talk: GorillaComputer not found!");
+            }
+
+            GameObject canvas = new GameObject("Canvas");
+            Canvas canvasComponent = canvas.AddComponent<Canvas>();
+            canvasComponent.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.AddComponent<CanvasScaler>();
+            canvas.AddComponent<GraphicRaycaster>();
+            text = canvas.AddComponent<Text>();
+            text.text = "Mic active";
+            text.fontSize = 15;
+            text.fontStyle = FontStyle.Bold;
+            text.color = Color.green;
+            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.alignment = TextAnchor.UpperLeft;
+        }
+        
+        void OnVoiceToggle()
+        {
+            ispttType = !ispttType;
+
+            if (GorillaComputer != null)
+            {
+                GorillaComputer.GetComponent<GorillaNetworking.GorillaComputer>().pttType = ispttType ? "ALL CHAT" : "PUSH TO TALK";
+                Debug.Log("Push to talk: " + (ispttType ? "ALL CHAT" : "PUSH TO TALK"));
+
+                if (GorillaComputer.GetComponent<GorillaNetworking.GorillaComputer>().pttType == "ALL CHAT")
+                {
+                    text.text = "Mic active";
+                    text.color = Color.green;
+                }
+                else
+                {
+                    text.text = "Mic Muted";
+                    text.color = Color.red;
+                }
+            }
+        }
         
         private void LateUpdate()
         {
@@ -175,6 +235,30 @@ namespace CamMod
                 Debug.Log($"Menu Toggled: {_menuUI}");
             }
             
+            if (Keyboard.current.tKey.wasPressedThisFrame)
+            {
+                Debug.Log("T was pressed");
+                OnVoiceToggle();
+            }
+            
+            SpecBackground();
+            NoSmoothRigs();
+            MiniMap();
+
+            if (GorillaComputer != null)
+            {
+                if (GorillaComputer.GetComponent<GorillaNetworking.GorillaComputer>().pttType == "ALL CHAT")
+                {
+                    text.text = "Mic active";
+                    text.color = Color.green;
+                }
+                else
+                {
+                    text.text = "Mic Muted";
+                    text.color = Color.red;
+                }
+            }
+            
             if (_timer)
             {
                 if (Keyboard.current.rightShiftKey.wasPressedThisFrame)
@@ -182,10 +266,6 @@ namespace CamMod
                     _timing = !_timing;
                 }
             }
-            
-            SpecBackground();
-            NoSmoothRigs();
-            MiniMap();
             
             if (_timing)
             {
@@ -308,8 +388,9 @@ namespace CamMod
                     case "SmoothingType": _smoothingType = int.Parse(value); break;
                     case "RigLerp": _rigLerp = float.Parse(value); break;
                     case "Tracking": _isHeadTracking = value == "1"; break;
-                    case "NameTags": NameTags.IsNameTags = value == "1"; break;
-                    case "FpsTags": NameTags.IsFpsTags = value == "1"; break;
+                    case "NameTags": IsNameTags = value == "1"; break;
+                    case "FpsTags": IsFpsTags = value == "1"; break;
+                    case "WASD": _movement = value == "1"; break;
                     case "Theme":
                         if (Enum.TryParse(value, out Theme parsedTheme))
                             _currentTheme = parsedTheme;
@@ -336,9 +417,10 @@ namespace CamMod
                 $"DayTime={_dayTime}",
                 $"SmoothingType={_smoothingType}",
                 $"RigLerp={_rigLerp}",
-                $"Tracking={_isHeadTracking}",
-                $"NameTags={NameTags.IsNameTags}",
-                $"FpsTags={NameTags.IsFpsTags}",
+                $"Tracking={(_isHeadTracking ? "1" : "0")}",
+                $"NameTags={(IsNameTags ? "1" : "0")}",
+                $"FpsTags={(IsFpsTags ? "1" : "0")}",
+                $"WASD={(_movement ? "1" : "0")}",
                 $"Theme={_currentTheme}"
             };
 
@@ -629,7 +711,7 @@ namespace CamMod
 
             if (Plugin._minimap)
             {
-                int size = 360;
+                int size = 340;
                 int padding = 10;
 
                 Rect mapRect = new Rect(
@@ -640,6 +722,11 @@ namespace CamMod
                 );
 
                 GUI.DrawTexture(mapRect, Plugin._minimapRenderTexture, ScaleMode.ScaleToFit, false);
+                SkeletonESP();
+            }
+            else
+            {
+                TurnOffSkeletonESP();
             }
             
             if (Plugin._spectatorList)
@@ -750,15 +837,15 @@ namespace CamMod
             }
 
             GUILayout.Space(5f);
-            string tagLabel = NameTags.IsNameTags ? "<color=green>NameTags: ON</color>" : "NameTags: OFF";
+            string tagLabel = IsNameTags ? "<color=green>NameTags: ON</color>" : "NameTags: OFF";
             if (GUILayout.Button(tagLabel, _buttonStyle))
-                NameTags.IsNameTags = !NameTags.IsNameTags;
-            if (NameTags.IsNameTags)
+                IsNameTags = !IsNameTags;
+            if (IsNameTags)
             {
-                string fpsLabel = NameTags.IsFpsTags ? "<color=green>FPS Tags: ON</color>" : "FPS Tags: OFF";
+                string fpsLabel = IsFpsTags ? "<color=green>FPS Tags: ON</color>" : "FPS Tags: OFF";
                 if (GUILayout.Button(fpsLabel, _buttonStyle))
                 {
-                    NameTags.IsFpsTags = !NameTags.IsFpsTags;
+                    IsFpsTags = !IsFpsTags;
                 }
             }
             GUILayout.Space(5f);
@@ -1010,20 +1097,33 @@ namespace CamMod
             }
         }
 
+        private static Vector2 _settingsScrollPos; 
+
         private static void SettingsDisplay()
         {
-            _settingsForm = new Rect(Screen.width - 270f, 340f, 260f, 390f);
+            _settingsForm = new Rect(Screen.width - 270f, 335f, 260f, 390f);
+
+            // Draw window box first
             GUI.Box(_settingsForm, "Settings", _windowStyle);
-            
+
+            // Padding inside the window
             Rect paddedRect = new Rect(_settingsForm.x + 10f, _settingsForm.y + 40f, _settingsForm.width - 20f, _settingsForm.height - 50f);
+
             GUILayout.BeginArea(paddedRect);
-            GUILayout.Space(3f);
+            
+            var oldWidth = GUI.skin.verticalScrollbar.fixedWidth;
+            GUI.skin.verticalScrollbar.fixedWidth = 0;
+
+            _settingsScrollPos = GUILayout.BeginScrollView(_settingsScrollPos, false, true, GUILayout.Width(paddedRect.width), GUILayout.Height(paddedRect.height));
+
+            // Your scrollable content:
             if (GUILayout.Button("Config: " + _availableConfigs[_selectedConfigIndex], _buttonStyle))
             {
                 _selectedConfigIndex = (_selectedConfigIndex + 1) % _availableConfigs.Length;
                 _selectedConfigName = _availableConfigs[_selectedConfigIndex];
                 LoadSettings();
             }
+
             GUILayout.Label("Config Name:", _labelStyle);
             _configName = GUILayout.TextField(_configName, 10, _textFieldStyle);
 
@@ -1032,35 +1132,46 @@ namespace CamMod
                 if (!string.IsNullOrWhiteSpace(_configName))
                 {
                     _selectedConfigName = _configName;
-                    SaveSettings(); 
+                    SaveSettings();
                 }
             }
-            GUILayout.Space(3f);
+
             LabelSlider("FOV", ref _fov, 60f, 115f);
             LabelSlider("Smoothing", ref _smoothing, 0f, 1.5f);
             LabelSlider("Rig Lerp", ref _rigLerp, 0f, 0.5f);
             LabelSlider("X Offset", ref _specOffset.x, -10f, 10f);
             LabelSlider("Y Offset", ref _specOffset.y, -10f, 10f);
             LabelSlider("Z Offset", ref _specOffset.z, -10f, 10f);
+
             GUILayout.Space(3f);
+
             string labelerpp = _isHeadTracking ? "Head" : "Body";
             if (GUILayout.Button($"Tracking: {labelerpp}", _buttonStyle))
                 _isHeadTracking = !_isHeadTracking;
-            GUILayout.Space(3f);
+
             if (GUILayout.Button($"AutoCast: {_isAutoCast}", _buttonStyle))
                 _isAutoCast = !_isAutoCast;
+
             if (_isAutoCast)
             {
                 LabelSlider("CoolDown", ref _switchCooldown, 0.1f, 3f);
             }
+
             LabelSlider2("Time of Day", ref _dayTime, 0f, float.MaxValue);
+
             GUILayout.Space(3f);
+
             if (GUILayout.Button("Smoothing Type: " + _smoothingType, _buttonStyle))
-                _smoothingType = (_smoothingType % 8) + 1;
-            
+                _smoothingType = (_smoothingType % 4) + 1;
+
+            GUILayout.EndScrollView();
+
+            // Restore vertical scrollbar width
+            GUI.skin.verticalScrollbar.fixedWidth = oldWidth;
+
             GUILayout.EndArea();
         }
-
+       
         private static void DistanceText()
         {
             if (_dist != 0 && _distanceDisplay && _spec != null)
@@ -1139,9 +1250,9 @@ namespace CamMod
         
         private static void ChangeName(string name)
         {
-            GorillaComputer.instance.currentName = name;
+            GorillaNetworking.GorillaComputer.instance.currentName = name;
             PhotonNetwork.LocalPlayer.NickName = name;
-            GorillaComputer.instance.savedName = name;
+            GorillaNetworking.GorillaComputer.instance.savedName = name;
             PlayerPrefs.SetString("playerName", name);
             PlayerPrefs.Save();
         }
@@ -1169,6 +1280,8 @@ namespace CamMod
                 Tpc.nearClipPlane = _clipping;
                 Tpc.cameraType = CameraType.Preview;
                 PhotonNetworkController.Instance.disableAFKKick = true;
+                Camera.main.cullingMask &= ~(1 << MiniMapESPLayer);
+                Tpc.cullingMask &= ~(1 << MiniMapESPLayer);
             }
             if (!_deletedCamera)
             {
@@ -1203,7 +1316,59 @@ namespace CamMod
                 }
             }
         }
+        
+        public static int MiniMapESPLayer = 25;
+        
+        public static void SkeletonESP()
+        {
+            if (!NetworkSystem.Instance.InRoom) return;
 
+            Shader skeletonShader = Shader.Find("GUI/Text Shader");
+
+            foreach (VRRig rig in GorillaParent.instance.vrrigs)
+            {
+                if (rig == null || rig.isOfflineVRRig || rig.skeleton == null || rig.skeleton.renderer == null)
+                    continue;
+
+                Color highlightColor = (rig.mainSkin.material.name.Contains("fected") || rig.mainSkin.material.name.Contains("It"))
+                    ? Color.red
+                    : new Color(0.1f, 1f, 0f);
+
+                float t = Mathf.PingPong(Time.time, 1f);
+                Color rigColor = Color.Lerp(highlightColor, Color.black, t);
+
+                rig.skeleton.UpdateColor(rigColor);
+                rig.skeleton.renderer.sharedMaterial.color = rigColor;
+                rig.skeleton.renderer.sharedMaterial.shader = skeletonShader;
+
+                // Assign layer only for minimap ESP
+                rig.skeleton.gameObject.layer = MiniMapESPLayer;
+                rig.skeleton.renderer.gameObject.layer = MiniMapESPLayer;
+
+                rig.skeleton.enabled = true;
+                rig.skeleton.renderer.enabled = true;
+            }
+        }
+        
+        public static void TurnOffSkeletonESP()
+        {
+            if (!NetworkSystem.Instance.InRoom) return;
+
+            Shader defaultShader = Shader.Find("GorillaTag/UberShader");
+
+            foreach (VRRig rig in GorillaParent.instance.vrrigs)
+            {
+                if (rig == null || rig.isOfflineVRRig || rig.skeleton == null || rig.skeleton.renderer == null)
+                    continue;
+
+                rig.skeleton.enabled = false;
+                rig.skeleton.renderer.enabled = false;
+
+                rig.skeleton.renderer.sharedMaterial.shader = defaultShader;
+            }
+        }
+
+        
         private static void MiniMap()
         {
             if (_minimapRenderTexture == null)
@@ -1211,12 +1376,17 @@ namespace CamMod
                 _minimapRenderTexture = new RenderTexture(256, 256, 16, RenderTextureFormat.ARGB32);
                 _minimapRenderTexture.Create();
             }
-            
+
             if (_minimapCamera == null)
             {
                 var minimapCameraObj = GameObject.Find("MinimapCamera") ?? new GameObject("MinimapCamera");
                 _minimapCamera = minimapCameraObj.GetComponent<Camera>() ?? minimapCameraObj.AddComponent<Camera>();
                 _minimapCamera.targetTexture = _minimapRenderTexture;
+                _minimapCamera.clearFlags = CameraClearFlags.SolidColor;
+                _minimapCamera.backgroundColor = Color.clear;
+                
+                _minimapCamera.cullingMask = ~0;
+                
                 _minimapCamera.enabled = false;
             }
 
@@ -1232,88 +1402,46 @@ namespace CamMod
 
                 _minimapCamera.transform.position = headTransform.position + Vector3.up * 12f;
                 _minimapCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-				_minimapCamera.transform.parent = headTransform.parent;
-			}
+                _minimapCamera.transform.parent = headTransform.parent;
+            }
             else
             {
                 _minimapCamera.transform.parent = _spec.transform.parent;
                 _minimapCamera.transform.position = _spec.transform.position + Vector3.up * 15f;
             }
+
             _minimapCamera.Render();
         }
         
-        private static Quaternion Squad(float t, Quaternion q0, Quaternion q1, Quaternion q2, Quaternion q3)
-        {
-            Quaternion a = Quaternion.Slerp(q0, q3, t);
-            Quaternion b = Quaternion.Slerp(q1, q2, t);
-            return Quaternion.Slerp(a, b, 2f * t * (1f - t));
-        }
-
         private static Vector3 SmoothPosition(Vector3 current, Vector3 target, float deltaTime)
         {
-            float smoothSpeed = Mathf.Lerp(2f, 30f, 1f - Mathf.Clamp01(_smoothing / 1.5f));
-            float dampingFactor = Mathf.Clamp01(1f - Mathf.Exp(-smoothSpeed * deltaTime));
-
             switch (_smoothingType)
             {
-                case 1: return Vector3.Lerp(current, target, dampingFactor);
-                case 2: return Vector3.Slerp(current, target, dampingFactor);
-                case 3: return Vector3.SmoothDamp(current, target, ref _velocity, _smoothing, Mathf.Infinity, deltaTime);
+                case 1:
+                    return Vector3.Lerp(current, target, Time.deltaTime * 3f / Mathf.Max(_smoothing, 0.01f));
+                case 2:
+                    return Vector3.Lerp(current, target, 1f - Mathf.Exp(-Time.deltaTime * 3f / Mathf.Max(_smoothing, 0.01f)));
+                case 3:
+                    return Vector3.SmoothDamp(current, target, ref _velocity, Time.deltaTime * 3f / Mathf.Max(_smoothing, 0.01f));
                 case 4:
-                    var mid = Vector3.Lerp(current, target, 0.5f);
-                    return Vector3.Lerp(Vector3.Lerp(current, mid, dampingFactor), target, dampingFactor);
-                case 5:
-                    _velocity += (target - current) * dampingFactor * 0.8f;
-                    _velocity *= 0.75f;
-                    return current + _velocity * deltaTime;
-                case 6:
-                    _predictedVelocity = Vector3.Lerp(_predictedVelocity, (target - current) / deltaTime, dampingFactor);
-                    return Vector3.Lerp(current, target + _predictedVelocity * 0.5f * deltaTime, dampingFactor);
-                case 7:
-                    float eased = EasingCurve.Evaluate(dampingFactor);
-                    return Vector3.Lerp(current, target, eased);
-                case 8:
-                    float stiffness = 30f;
-                    float damping = 0.8f;
-                    _velocity += (target - current) * stiffness * deltaTime;
-                    _velocity *= damping;
-                    return current + _velocity * deltaTime;
-                default: return target;
+                    return Vector3.Lerp(Vector3.Lerp(current, (current + target) / 2f, Time.deltaTime * 3f / Mathf.Max(_smoothing, 0.01f)), target, Time.deltaTime * 3f / Mathf.Max(_smoothing, 0.01f));
+                default:
+                    return target;
             }
         }
 
         private static Quaternion SmoothRotation(Quaternion current, Quaternion target, float deltaTime)
         {
-            float smoothSpeed = Mathf.Lerp(2f, 30f, 1f - Mathf.Clamp01(_smoothing / 1.5f));
-            float dampingFactor = Mathf.Clamp01(1f - Mathf.Exp(-smoothSpeed * deltaTime));
-
             switch (_smoothingType)
             {
                 case 1:
-                    return Quaternion.Lerp(current, target, dampingFactor);
+                    return Quaternion.Lerp(current, target, Time.deltaTime * 3f / Mathf.Max(_smoothing, 0.01f));
                 case 2:
-                    return Quaternion.Slerp(current, target, dampingFactor);
+                    return Quaternion.Lerp(current, target, 1f - Mathf.Exp(-Time.deltaTime * 3f / Mathf.Max(_smoothing, 0.01f)));
                 case 3:
-                    return Quaternion.Lerp(current, Quaternion.Slerp(current, target, dampingFactor), dampingFactor);
+                    return Quaternion.Slerp(current, target, Time.deltaTime * 3f / Mathf.Max(_smoothing, 0.01f));
                 case 4:
-                    return Quaternion.Slerp(Quaternion.Slerp(current, target, 0.5f), target, dampingFactor);
-                case 5:
-                    float angle = Quaternion.Angle(current, target);
-                    if (angle < 0.01f) return target;
-                    Vector3 axis;
-                    Quaternion deltaRot = target * Quaternion.Inverse(current);
-                    deltaRot.ToAngleAxis(out angle, out axis);
-                    return Quaternion.AngleAxis(angle * dampingFactor, axis) * current;
-                case 6:
-                    float eased = EasingCurve.Evaluate(dampingFactor);
-                    return Quaternion.Slerp(current, target, eased);
-                case 7:
-                    float a = Quaternion.Angle(current, target);
-                    if (a < 1f)
-                        return target;
-                    return Quaternion.Slerp(current, target, dampingFactor);
-                case 8:
-                    return Squad(dampingFactor, current, current, target, target);
+                    return Quaternion.Slerp(Quaternion.Slerp(current, target, Time.deltaTime * 3f / Mathf.Max(_smoothing, 0.01f)), target, Time.deltaTime * 3f / Mathf.Max(_smoothing, 0.01f));
                 default:
                     return target;
             }
@@ -1332,16 +1460,16 @@ namespace CamMod
                 GetDistToFected(ref _dist);
 
                 Vector3 targetPos;
-                
+
                 if (_isHeadTracking)
-                { 
+                {
                     targetPos = _specRig.headMesh.transform.TransformPoint(_specOffset);
                 }
                 else
                 {
                     targetPos = _spec.transform.TransformPoint(_specOffset);
                 }
-                
+
                 if ((targetPos - _tpcObject.transform.position).sqrMagnitude > 10f)
                 {
                     _tpcObject.transform.position = Vector3.Lerp(_tpcObject.transform.position, targetPos, 0.3f);
@@ -1381,7 +1509,7 @@ namespace CamMod
                         _tpcObject.transform.parent = null;
                         Vector3 testTarget;
                         if (_isHeadTracking)
-                        { 
+                        {
                             testTarget = GTPlayer.Instance.headCollider.transform.TransformPoint(_specOffset);
                         }
                         else

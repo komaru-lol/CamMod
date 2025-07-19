@@ -7,9 +7,6 @@ namespace CamMod
 {
 	internal class NameTags
 	{
-		public static bool IsNameTags = false;
-		public static bool IsFpsTags = false;
-
 		private static Dictionary<VRRig, GameObject> nameTagObjects = new();
 		private static Dictionary<VRRig, GameObject> fpsTagObjects = new();
 
@@ -20,8 +17,12 @@ namespace CamMod
 				if (rig != null && !rig.isOfflineVRRig)
 				{
 					// --- NameTag ---
-					if (IsNameTags)
+					if (Plugin.IsNameTags)
 					{
+						Color color = (rig.mainSkin.material.name.Contains("gorilla_body(Clone) (Instance)")
+									   ? rig.mainSkin.material.color
+									   : new Color(1f, 0.1f, 0f));
+
 						if (!nameTagObjects.ContainsKey(rig))
 						{
 							GameObject obj = new GameObject("NameTags");
@@ -31,7 +32,7 @@ namespace CamMod
 							TextMeshPro textMeshPro = obj.AddComponent<TextMeshPro>();
 							textMeshPro.text = RigManager.ReachForName(rig).NickName.ToUpper();
 							textMeshPro.alignment = TextAlignmentOptions.Center;
-							textMeshPro.color = GetNameColor(rig);
+							textMeshPro.color = color;
 							textMeshPro.fontSize = 1.75f;
 							textMeshPro.font = Plugin.NameTagFont;
 
@@ -39,7 +40,10 @@ namespace CamMod
 						}
 						else
 						{
-							nameTagObjects[rig].transform.rotation = Quaternion.LookRotation(Plugin.Tpc.transform.forward);
+							GameObject obj = nameTagObjects[rig];
+							TextMeshPro textMeshPro = obj.GetComponent<TextMeshPro>();
+							textMeshPro.color = color; // Update color every frame
+							obj.transform.rotation = Quaternion.LookRotation(Plugin.Tpc.transform.forward);
 						}
 					}
 					else if (nameTagObjects.ContainsKey(rig))
@@ -49,7 +53,7 @@ namespace CamMod
 					}
 
 					// --- FPS Tag ---
-					if (IsFpsTags)
+					if (Plugin.IsFpsTags)
 					{
 						int fps = (int)Traverse.Create(rig).Field("fps").GetValue();
 						Color color = GetFpsColor(ref fps);
@@ -63,7 +67,7 @@ namespace CamMod
 							TextMeshPro textMeshPro2 = obj2.AddComponent<TextMeshPro>();
 							textMeshPro2.text = $"{fps} HZ";
 							textMeshPro2.alignment = TextAlignmentOptions.Center;
-							textMeshPro2.color = color; 
+							textMeshPro2.color = color;
 							textMeshPro2.fontSize = 1.75f;
 							textMeshPro2.font = Plugin.NameTagFont;
 
@@ -84,13 +88,6 @@ namespace CamMod
 					}
 				}
 			}
-		}
-
-		private static Color GetNameColor(VRRig rig)
-		{
-			return rig.mainSkin.material.name.Contains("gorilla_body(Clone) (Instance)")
-				? rig.mainSkin.material.color
-				: new Color(1f, 0.1f, 0f);
 		}
 
 		private static Color GetFpsColor(ref int fps)
