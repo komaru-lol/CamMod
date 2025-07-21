@@ -1,5 +1,4 @@
 using CamMod;
-using TMPro;
 using UnityEngine;
 
 namespace LoadThing
@@ -12,12 +11,8 @@ namespace LoadThing
         {
             _loaderObject = new GameObject();
             _loaderObject.AddComponent<Plugin>();
-            Object.DontDestroyOnLoad(_loaderObject);
-            Plugin.NameTagFont = TMP_FontAsset.CreateFontAsset(Plugin.CreateFont("CamMod.Assets.nametagfont.ttf"));
-            RpcManager.Init();
-            Plugin.EnsureDefaultConfig();
-            Plugin.LoadSettings();
-      
+            Plugin.Setup();
+            Object.DontDestroyOnLoad(_loaderObject);            
         }
     }
 }
