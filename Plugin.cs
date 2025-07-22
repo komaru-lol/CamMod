@@ -133,8 +133,7 @@ namespace CamMod
         private static float _editClipPlane = 0.03f;
         private static float _targetClipping = _defaultClipping;
         private static bool IsSpecNull => _spec == null;
-        private static float DesiredClipPlane => IsSpecNull ? _defaultClipping : _targetClipping;
-
+        private static float DesiredClipPlane;
         public static void Setup()
         {
             for (int i = 0; i < 6; i++)
@@ -593,7 +592,7 @@ namespace CamMod
         
         private static Rect _r = new Rect(Screen.width - 270f, 10f, 260f, 340f);
         private static Rect _menuForm = new Rect((Screen.width - 900f) / 2f, (Screen.height - 700f) / 2f, 900f, 700f);
-        private static Rect _casterModForm = new Rect(10f, 10f, 250f, 340f);
+        private static Rect _casterModForm = new Rect(10f, 10f, 250f, 360f);
         private static Rect _timerForm = new Rect(20f, Screen.height - 220f, 320f, 200f);
         private static Rect _settingsForm = new Rect(Screen.width - 280f, 330f, 260f, 390f);
         private static Rect _scoreForm = new Rect(20f, 440f, 300f, 220f);
@@ -1379,13 +1378,14 @@ namespace CamMod
                     return target;
             }
         }
-
-        // ReSharper disable Unity.PerformanceAnalysis
+        
         private static void SpecBackground()
         {
+            
             if (_tpcObject == null || _minimapCamera == null || GTPlayer.Instance == null || GTPlayer.Instance.headCollider == null)
                 return;
-
+            
+            DesiredClipPlane = IsSpecNull ? _defaultClipping : _targetClipping;
             if (_spec != null)
             {
                 _targetClipping = _defaultClipping * _specRig.transform.localScale.y;
