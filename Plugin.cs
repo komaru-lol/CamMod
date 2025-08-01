@@ -134,6 +134,7 @@ namespace CamMod
         private static float _targetClipping = _defaultClipping;
         private static bool IsSpecNull => _spec == null;
         private static float DesiredClipPlane;
+        
         public static void Setup()
         {
             for (int i = 0; i < 6; i++)
@@ -148,7 +149,7 @@ namespace CamMod
         
         void Start()
         {
-            Setup();
+           Setup();
         }
 
         /*void OnEnable()
@@ -396,7 +397,7 @@ namespace CamMod
                 _selectedConfigIndex = 0;
             _selectedConfigName = _availableConfigs[_selectedConfigIndex];
         }
-
+    
         private static Font CreateFont(string path)
         {
             var executingAssembly = Assembly.GetExecutingAssembly();
@@ -1230,7 +1231,6 @@ namespace CamMod
             }
         }
 
-
         private static void SetupCamListener()
         {
             if (_tpcObject.GetComponent<AudioListener>() == null)
@@ -1439,8 +1439,7 @@ namespace CamMod
                     _minimapCamera.transform.parent = GTPlayer.Instance.headCollider.transform.parent;
 
                     if (_fpc)
-                    {
-                        _tpcObject.transform.parent = null;
+                    { 
                         Vector3 testTarget;
                         if (_isHeadTracking)
                         {
@@ -1452,8 +1451,9 @@ namespace CamMod
                         }
                         _tpcObject.transform.position = SmoothPosition(_tpcObject.transform.position, testTarget);
 
-                        _tpcObject.transform.rotation = Quaternion.LookRotation(
-                            GTPlayer.Instance.headCollider.transform.position - _tpcObject.transform.position);
+                        var lookRotation= Quaternion.LookRotation(GTPlayer.Instance.headCollider.transform.position - _tpcObject.transform.position);
+                        _tpcObject.transform.rotation = SmoothRotation(_tpcObject.transform.rotation, lookRotation);
+                        _tpcObject.transform.parent = null;
                     }
                     else
                     {
