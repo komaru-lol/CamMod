@@ -1205,11 +1205,12 @@ namespace CamMod
                 _tpcObject = new GameObject("TPCamera");
                 Tpc = _tpcObject.AddComponent<Camera>();
 
-                Tpc.cameraType = CameraType.Preview;
                 SetupCamListener();
                 
                 _editClipPlane = Mathf.Lerp(_editClipPlane, DesiredClipPlane, 0.075f);
                 Tpc.nearClipPlane = _editClipPlane;
+
+                Tpc.cameraType = CameraType.Preview;
 
                 PhotonNetworkController.Instance.disableAFKKick = true;
 
@@ -1236,6 +1237,26 @@ namespace CamMod
                 _camListener = _tpcObject.AddComponent<AudioListener>();
             }
             _camListener.enabled = _listener;
+        }
+        
+        private static void NoSmoothRigs()
+        {
+            foreach (VRRig r in GorillaParent.instance.vrrigs)
+            {
+                if (r != null) {
+                    if (r != GorillaTagger.Instance.offlineVRRig) {
+                        r.lerpValueBody = _rigLerp;
+                        r.lerpValueFingers = _rigLerp;
+                    }
+
+                    else if (_spec == null && _specRig == null) {
+                        if (r == GorillaTagger.Instance.offlineVRRig) {
+                            r.lerpValueBody = _rigLerp;
+                            r.lerpValueFingers = _rigLerp;
+                        }
+                    }
+                }
+            }
         }
 
         private static void SkeletonEsp()
@@ -1327,79 +1348,55 @@ namespace CamMod
 
             _minimapCamera.Render();
         }
-        
-        private static void NoSmoothRigs()
-        {
-            foreach (VRRig rig in GorillaParent.instance.vrrigs)
-            {
-                if (rig == null) continue;
 
-                float lerpSpeed = 10f;
-
-                if (rig != GorillaTagger.Instance.offlineVRRig || (_spec == null && _specRig == null))
-                {
-                    rig.lerpValueBody = Mathf.Lerp(rig.lerpValueBody, _rigLerp, Time.deltaTime * lerpSpeed);
-                    rig.lerpValueFingers = Mathf.Lerp(rig.lerpValueFingers, _rigLerp, Time.deltaTime * lerpSpeed);
-                }
-            }
-        }
-        
         private static Vector3 SmoothPosition(Vector3 current, Vector3 target)
         {
-            float smoothingSpeed = Mathf.Max(_smoothing, 0.01f);
+            float speed = Mathf.Max(_smoothing, 0.01f);
+            float t = Mathf.Clamp01(Time.deltaTime * 6f / speed); // faster convergence
+            _velocity = IsSpecNull ? GTPlayer.Instance.RigidbodyVelocity : _specRig.LatestVelocity();
 
             switch (_smoothingType)
             {
-                case 1:
-                    // Exponential damping (smooth, frame-rate independent)
-                    return Vector3.Lerp(current, target, 1f - Mathf.Exp(-Time.deltaTime * smoothingSpeed));
+                case 1: // Basic Lerp
+                    return Vector3.Lerp(current, target, t);
 
-                case 2:
-                    // SmoothDamp with adjustable responsiveness
-                    return Vector3.SmoothDamp(current, target, ref _velocity, 1f / smoothingSpeed, Mathf.Infinity, Time.deltaTime);
+                case 2: // Exponential decay
+                    return Vector3.Lerp(current, target, 1f - Mathf.Exp(-Time.deltaTime * 6f / speed));
 
-                case 3:
-                    // Linear lerp (fast)
-                    return Vector3.Lerp(current, target, Time.deltaTime * smoothingSpeed);
+                case 3: // SmoothDamp with time constant
+                    return Vector3.SmoothDamp(current, target, ref _velocity, speed * 0.1f, Mathf.Infinity, Time.deltaTime);
 
-                case 4:
-                    // Stylized double-lerp (fluid, cinematic)
-                    Vector3 half = Vector3.Lerp(current, (current + target) * 0.5f, Time.deltaTime * smoothingSpeed);
-                    return Vector3.Lerp(half, target, Time.deltaTime * smoothingSpeed);
+                case 4: // Double Lerp for soft easing
+                    Vector3 mid = Vector3.Lerp(current, (current + target) * 0.5f, t);
+                    return Vector3.Lerp(mid, target, t);
 
                 default:
-                    Debug.LogWarning($"Unknown smoothing type {_smoothingType}, using exponential fallback.");
-                    return Vector3.Lerp(current, target, 1f - Mathf.Exp(-Time.deltaTime * smoothingSpeed));
+                    return target;
             }
         }
 
         private static Quaternion SmoothRotation(Quaternion current, Quaternion target)
         {
-            float smoothingSpeed = Mathf.Max(_smoothing, 0.01f);
+            float speed = Mathf.Max(_smoothing, 0.01f);
+            float t = Mathf.Clamp01(Time.deltaTime * 6f / speed);
 
             switch (_smoothingType)
             {
                 case 1:
-                    // Exponential damping
-                    return Quaternion.Slerp(current, target, 1f - Mathf.Exp(-Time.deltaTime * smoothingSpeed));
+                    return Quaternion.Lerp(current, target, t);
 
                 case 2:
-                    // Standard slerp
-                    return Quaternion.Slerp(current, target, Time.deltaTime * smoothingSpeed);
+                    return Quaternion.Lerp(current, target, 1f - Mathf.Exp(-Time.deltaTime * 6f / speed));
 
                 case 3:
-                    // Stylized double-slerp (variant)
-                    Quaternion half = Quaternion.Slerp(current, target, 0.5f * Time.deltaTime * smoothingSpeed);
-                    return Quaternion.Slerp(half, target, Time.deltaTime * smoothingSpeed);
+                    return Quaternion.Slerp(current, target, t);
 
                 case 4:
-                    // New: double slerp (mirroring position case 4)
-                    Quaternion step1 = Quaternion.Slerp(current, Quaternion.Slerp(current, target, 0.5f), Time.deltaTime * smoothingSpeed);
-                    return Quaternion.Slerp(step1, target, Time.deltaTime * smoothingSpeed);
+                    Quaternion mid = Quaternion.Slerp(current, target, t * 0.5f);
+                    return Quaternion.Slerp(mid, target, t);
 
                 default:
-                    Debug.LogWarning($"Unknown smoothing type {_smoothingType}, using exponential fallback.");
-                    return Quaternion.Slerp(current, target, 1f - Mathf.Exp(-Time.deltaTime * smoothingSpeed));
+                    return target;
             }
         }
         
