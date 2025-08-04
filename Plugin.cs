@@ -1241,20 +1241,24 @@ namespace CamMod
         
         private static void NoSmoothRigs()
         {
-            foreach (VRRig r in GorillaParent.instance.vrrigs)
-            {
-                if (r != null) {
-                    if (r != GorillaTagger.Instance.offlineVRRig) {
-                        r.lerpValueBody = _rigLerp;
-                        r.lerpValueFingers = _rigLerp;
-                    }
+            var localRig = GorillaTagger.Instance.offlineVRRig;
 
-                    else if (_spec == null && _specRig == null) {
-                        if (r == GorillaTagger.Instance.offlineVRRig) {
-                            r.lerpValueBody = _rigLerp;
-                            r.lerpValueFingers = _rigLerp;
-                        }
-                    }
+            foreach (VRRig rig in GorillaParent.instance.vrrigs)
+            {
+                if (rig == null)
+                    continue;
+
+                // Always apply _rigLerp to remote players
+                if (rig != localRig)
+                {
+                    rig.lerpValueBody = _rigLerp;
+                    rig.lerpValueFingers = _rigLerp;
+                }
+                // Apply to local player only when not spectating
+                else if (_spec == null && _specRig == null)
+                {
+                    rig.lerpValueBody = _rigLerp;
+                    rig.lerpValueFingers = _rigLerp;
                 }
             }
         }
