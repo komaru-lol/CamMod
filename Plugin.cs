@@ -1248,13 +1248,12 @@ namespace CamMod
                 if (rig == null)
                     continue;
 
-                // Always apply _rigLerp to remote players
                 if (rig != localRig)
                 {
                     rig.lerpValueBody = _rigLerp;
                     rig.lerpValueFingers = _rigLerp;
                 }
-                // Apply to local player only when not spectating
+                
                 else if (_spec == null && _specRig == null)
                 {
                     rig.lerpValueBody = _rigLerp;
