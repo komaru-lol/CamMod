@@ -46,8 +46,7 @@ namespace CamMod
         private static Camera _minimapCamera;
 
         private static Vector3 _specOffset = new Vector3(0f, 0.1f, -1.5f);
-        private static Vector3 _velocity;
-        
+     
         private static float _rigLerp = 0.5f;
         private static float _smoothing = 0.5f;
         private static float _fov = 90f;
@@ -1241,23 +1240,27 @@ namespace CamMod
         
         private static void NoSmoothRigs()
         {
-            foreach (VRRig r in GorillaParent.instance.vrrigs)
-            {
-                if (r != null) {
-                    if (r != GorillaTagger.Instance.offlineVRRig) {
-                        r.lerpValueBody = _rigLerp;
-                        r.lerpValueFingers = _rigLerp;
-                    }
+            var localRig = GorillaTagger.Instance.offlineVRRig;
 
-                    else if (_spec == null && _specRig == null) {
-                        if (r == GorillaTagger.Instance.offlineVRRig) {
-                            r.lerpValueBody = _rigLerp;
-                            r.lerpValueFingers = _rigLerp;
-                        }
-                    }
+            foreach (VRRig rig in GorillaParent.instance.vrrigs)
+            {
+                if (rig == null)
+                    continue;
+                
+                if (rig != localRig)
+                {
+                    rig.lerpValueBody = _rigLerp;
+                    rig.lerpValueFingers = _rigLerp;
+                }
+               
+                else if (_spec == null && _specRig == null)
+                {
+                    rig.lerpValueBody = _rigLerp;
+                    rig.lerpValueFingers = _rigLerp;
                 }
             }
         }
+
 
         private static void SkeletonEsp()
         {
@@ -1349,11 +1352,20 @@ namespace CamMod
             _minimapCamera.Render();
         }
 
+        private static Vector3 _smoothDampVelocity; 
+
         private static Vector3 SmoothPosition(Vector3 current, Vector3 target)
         {
             float speed = Mathf.Max(_smoothing, 0.01f);
-            float t = Mathf.Clamp01(Time.deltaTime * 6f / speed); // faster convergence
-            _velocity = IsSpecNull ? GTPlayer.Instance.RigidbodyVelocity : _specRig.LatestVelocity();
+            float movementMagnitude = (target - current).magnitude;
+            float adaptiveSpeed = Mathf.Lerp(speed, speed * 0.3f, Mathf.Clamp01(movementMagnitude / 0.2f)); 
+
+            Vector3 physicsVelocity = IsSpecNull ? GTPlayer.Instance.RigidbodyVelocity : _specRig.LatestVelocity();
+            float velocityMagnitude = physicsVelocity.magnitude;
+            float speedModifier = Mathf.Lerp(1f, 0.5f, Mathf.Clamp01(velocityMagnitude / 5f));
+            float effectiveSpeed = adaptiveSpeed * speedModifier;
+
+            float t = Mathf.Clamp01(Time.deltaTime * 6f / effectiveSpeed);
 
             switch (_smoothingType)
             {
@@ -1361,12 +1373,12 @@ namespace CamMod
                     return Vector3.Lerp(current, target, t);
 
                 case 2: // Exponential decay
-                    return Vector3.Lerp(current, target, 1f - Mathf.Exp(-Time.deltaTime * 6f / speed));
+                    return Vector3.Lerp(current, target, 1f - Mathf.Exp(-Time.deltaTime * 6f / effectiveSpeed));
 
-                case 3: // SmoothDamp with time constant
-                    return Vector3.SmoothDamp(current, target, ref _velocity, speed * 0.1f, Mathf.Infinity, Time.deltaTime);
+                case 3: // SmoothDamp
+                    return Vector3.SmoothDamp(current, target, ref _smoothDampVelocity, effectiveSpeed * 0.1f, Mathf.Infinity, Time.deltaTime);
 
-                case 4: // Double Lerp for soft easing
+                case 4: // Double Lerp
                     Vector3 mid = Vector3.Lerp(current, (current + target) * 0.5f, t);
                     return Vector3.Lerp(mid, target, t);
 
@@ -1399,7 +1411,7 @@ namespace CamMod
                     return target;
             }
         }
-        
+
         private static void SpecBackground()
         {
             
