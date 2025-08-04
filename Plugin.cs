@@ -1388,9 +1388,14 @@ namespace CamMod
                     return Quaternion.Slerp(current, target, Time.deltaTime * smoothingSpeed);
 
                 case 3:
-                    // Stylized double-slerp
+                    // Stylized double-slerp (variant)
                     Quaternion half = Quaternion.Slerp(current, target, 0.5f * Time.deltaTime * smoothingSpeed);
                     return Quaternion.Slerp(half, target, Time.deltaTime * smoothingSpeed);
+
+                case 4:
+                    // New: double slerp (mirroring position case 4)
+                    Quaternion step1 = Quaternion.Slerp(current, Quaternion.Slerp(current, target, 0.5f), Time.deltaTime * smoothingSpeed);
+                    return Quaternion.Slerp(step1, target, Time.deltaTime * smoothingSpeed);
 
                 default:
                     Debug.LogWarning($"Unknown smoothing type {_smoothingType}, using exponential fallback.");
