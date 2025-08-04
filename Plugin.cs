@@ -1205,6 +1205,7 @@ namespace CamMod
                 _tpcObject = new GameObject("TPCamera");
                 Tpc = _tpcObject.AddComponent<Camera>();
 
+                Tpc.cameraType = CameraType.Preview;
                 SetupCamListener();
                 
                 _editClipPlane = Mathf.Lerp(_editClipPlane, DesiredClipPlane, 0.075f);
