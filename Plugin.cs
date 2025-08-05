@@ -9,6 +9,7 @@ using System;
 using GorillaNetworking;
 using System.IO;
 using System.Reflection;
+using GorillaExtensions;
 using TMPro;
 using Debug = UnityEngine.Debug;
 
@@ -27,7 +28,7 @@ namespace CamMod
         private static GUIStyle _textFieldStyle;
 
         private static readonly List<float> SavedTimes = [];
-        private static List<VRRig> _playerList = [];
+        private static VRRig[] _playerList;
         private static readonly List<float> Speeds = [];
         
         private static string SelectedConfigPath => Path.Combine(ConfigFolder, _selectedConfigName + ".cfg");
@@ -96,7 +97,7 @@ namespace CamMod
         private const int CornerRadius = 8;
         private const int MiniMapEspLayer = 25;
         
-        private static Color _windowColor;
+        public static Color _windowColor;
         private static Color _buttonColor;
         private static Color _textFieldColor;
         private static Color _labelTextColor;
@@ -252,11 +253,11 @@ namespace CamMod
             }
 
             if (_playerList == null)
-                _playerList = new List<VRRig>();
+                _playerList = GorillaParent.instance.vrrigs.ToArray();
 
             if (PhotonNetwork.InRoom)
             {
-                if (_playerList != null && _playerList.Count > 0)
+                if (_playerList != null && _playerList.Length > 0)
                 {
                     NumberSpectate();
                 }
@@ -593,9 +594,9 @@ namespace CamMod
         private static Rect _r = new Rect(Screen.width - 270f, 10f, 260f, 340f);
         private static Rect _menuForm = new Rect((Screen.width - 900f) / 2f, (Screen.height - 700f) / 2f, 900f, 700f);
         private static Rect _casterModForm = new Rect(10f, 10f, 250f, 360f);
-        private static Rect _timerForm = new Rect(20f, Screen.height - 220f, 320f, 200f);
+        private static Rect _timerForm = new Rect(Screen.width - 320f, Screen.height - 220f, 320f, 200f);
         private static Rect _settingsForm = new Rect(Screen.width - 280f, 330f, 260f, 390f);
-        private static Rect _scoreForm = new Rect(20f, 440f, 300f, 220f);
+        private static Rect _scoreForm = new Rect(10f, 440f, 300f, 220f);
 
         private static void BeginMargin(ref Rect oldRect, Rect newRect)
         {
@@ -667,8 +668,8 @@ namespace CamMod
                 int padding = 10;
 
                 Rect mapRect = new Rect(
-                    Screen.width - size - padding,
-                    Screen.height - size - padding,
+                    Screen.width - size - padding, // X: right-aligned
+                    padding,                       // Y: top-aligned
                     size,
                     size
                 );
@@ -679,10 +680,16 @@ namespace CamMod
             else {
                 TurnOffSkeletonEsp();
             }
-            
-            if (Plugin._spectatorList)
-                Plugin.SpectatorMenu();
 
+            if (Plugin._spectatorList) {
+                DrawBoard();
+            } else {
+                _spec = null;
+                _specRig = null;
+                _listener = false;
+                _listener = false;
+            }
+            
             if (Plugin._scoreDisplay)
                 Plugin.ScoreDisplay();
 
@@ -699,7 +706,7 @@ namespace CamMod
                 Plugin.SettingsDisplay();
         }
 
-        private static void SpectatorMenu()
+        /*private static void SpectatorMenu()
         {
             _r = new Rect(Screen.width - 270f, 10f, 260f, 320f);
             GUI.Box(_r, "Spectator List", _windowStyle);
@@ -733,7 +740,6 @@ namespace CamMod
                         _spec = player.gameObject;
                         _specRig = player;
                     }
-
                     GUILayout.EndHorizontal();
                     index++;
                     GUI.contentColor = Color.white;
@@ -755,8 +761,172 @@ namespace CamMod
                 GUILayout.Label("Join a Room\nTo Spectate Others", _labelStyle);
             }
 
+            GUILayout.EndArea(); 
+        }*/
+
+        /*private static bool CheckTagged(VRRig rig)
+        {
+            return rig.mainSkin.material.name.Contains("fected") || rig.mainSkin.material.name.Contains("It");
+        }
+
+        private static void PlayerList()
+        {
+            _r = new Rect(10f, Screen.height - 280f, 300f, 270f);
+            GUI.Box(_r, "Player List", _windowStyle);
+
+            Rect paddedRect = new Rect(_r.x + 10f, _r.y + 40f, _r.width - 20f, _r.height - 60f);
+            GUILayout.BeginArea(paddedRect);
+
+            if (PhotonNetwork.InRoom)
+            {
+                _playerList = new List<VRRig>();
+                foreach (var vrrig in GorillaParent.instance.vrrigs)
+                {
+                    if (vrrig != null && !vrrig.isMyPlayer && vrrig != GorillaTagger.Instance.offlineVRRig)
+                    {
+                        _playerList.Add(vrrig);
+                    }
+                }
+                
+                int index = 1;
+                foreach (VRRig rig in _playerList)
+                {
+                    Color stateColor = CheckTagged(rig) ? new Color(1f, 0.1f, 0f) : rig.playerColor;
+                    CreatePlayerCard(rig, stateColor, index, paddedRect.width);
+                    index++;
+                }
+            }
+
             GUILayout.EndArea();
         }
+
+        private static void CreatePlayerCard(VRRig vrrig, Color color, int rank, float cardWidth)
+        {
+            if (vrrig == null || vrrig == GorillaTagger.Instance.offlineVRRig)
+                return;
+
+            string playername = vrrig.playerText1.text;
+
+            float tagWidth = 20f;
+            float tagHeight = 20f;
+            float skew = 8f; 
+
+            GUILayout.BeginHorizontal();
+            
+            RectMat.DrawParallelogram(tagWidth, tagHeight, skew, RectMat.MakeColorFromTex(color));
+            GUILayout.Space(6f);
+            GUILayout.Label($"#{rank} {playername}", _labelStyle);
+            GUILayout.EndHorizontal();
+        }*/
+        
+        public void DrawBoard()
+        {
+            int Y = Screen.height - 35;
+            int Spacing = 35;
+            int Width = 320;
+            int Height = 30;
+            int Number = 0;
+
+            GUIStyle s = new GUIStyle(_labelStyle)
+            {
+                fontSize = 22,
+                fontStyle = FontStyle.Italic,
+                alignment = TextAnchor.MiddleLeft,
+                normal = { textColor = Color.white },
+                hover = { textColor = Color.white },
+            };
+
+            _playerList = GorillaParent.instance.vrrigs.ToArray();
+            foreach (VRRig r in _playerList)
+            {
+                if (r != null)
+                {
+                    int CardPosition = Y - (Number * Spacing);
+                    Draw(new Rect(20, CardPosition, Width, Height), -15);
+                    DrawColorCard(new Rect(60, CardPosition, 25, Height), -15, r);
+
+                    GUI.Label(new Rect(25, CardPosition, Width - 20, Height), Number.ToString(), s);
+                    GUI.Label(new Rect(85, CardPosition, Width - 20, Height), r.playerNameVisible, s);
+
+                    Number++;
+                }
+            }
+        }
+        
+        #region Cards
+        
+        private static Texture2D _cachedDarkTexture;
+        private static Dictionary<Color, Texture2D> _cachedColorTextures = new Dictionary<Color, Texture2D>();
+
+        private static void Draw(Rect rect, float skewOffset)
+        {
+            Matrix4x4 originalMatrix = GUI.matrix;
+
+            Matrix4x4 skewMatrix = Matrix4x4.identity;
+            skewMatrix.m00 = 1;
+            skewMatrix.m01 = skewOffset / rect.height;
+            skewMatrix.m11 = 1;
+
+            GUI.matrix = Matrix4x4.TRS(new Vector3(rect.x, rect.y, 0), Quaternion.identity, Vector3.one) * skewMatrix;
+
+            if (_cachedDarkTexture == null)
+            {
+                _cachedDarkTexture = new Texture2D(1, 1);
+                _cachedDarkTexture.SetPixel(0, 0, new Color32(25, 28, 28, 170));
+                _cachedDarkTexture.Apply();
+            }
+
+            GUI.DrawTexture(new Rect(0, 0, rect.width, rect.height), _cachedDarkTexture, ScaleMode.StretchToFill);
+
+            GUI.matrix = originalMatrix;
+        }
+
+        public static Color cardColor;
+        public static void DrawColorCard(Rect rect, float skewOffset, VRRig targetRig)
+        {
+            if (targetRig.IsNull()) return;
+
+            Matrix4x4 originalMatrix = GUI.matrix;
+
+            Matrix4x4 skewMatrix = Matrix4x4.identity;
+            skewMatrix.m00 = 1;
+            skewMatrix.m01 = skewOffset / rect.height;
+            skewMatrix.m11 = 1;
+
+            GUI.matrix = Matrix4x4.TRS(new Vector3(rect.x, rect.y, 0), Quaternion.identity, Vector3.one) * skewMatrix;
+
+            Color displayColor;
+            if (targetRig.lavaParticleSystem != null && targetRig.lavaParticleSystem.isPlaying) displayColor = new Color(1f, 0.5f, 0f);
+            else displayColor = targetRig.playerColor;
+
+            if (!_cachedColorTextures.TryGetValue(displayColor, out var colorTexture))
+            {
+                colorTexture = new Texture2D(1, 1);
+                colorTexture.SetPixel(0, 0, displayColor);
+                colorTexture.Apply();
+                _cachedColorTextures[displayColor] = colorTexture;
+            }
+
+            GUI.DrawTexture(new Rect(0, 0, rect.width, rect.height), colorTexture, ScaleMode.StretchToFill);
+
+            GUI.matrix = originalMatrix;
+        }
+
+        public static void ClearTextureCache()
+        {
+            if (_cachedDarkTexture != null)
+            {
+                Destroy(_cachedDarkTexture);
+                _cachedDarkTexture = null;
+            }
+
+            foreach (var texture in _cachedColorTextures.Values)
+            {
+                if (texture != null) Destroy(texture);
+            }
+            _cachedColorTextures.Clear();
+        }
+        #endregion
         
         private static void CasterModsMenu()
         {
@@ -829,11 +999,16 @@ namespace CamMod
         
         private static void ScoreDisplay()
         {
-            BeginMargin(ref _scoreForm, new Rect(20, 440, 300, 240));
-            GUILayout.BeginArea(_scoreForm);
+            _scoreForm = new Rect(10, 440, 300, 240);
 
-            GUI.Box(new Rect(0, 0, _scoreForm.width, _scoreForm.height), GUIContent.none, _windowStyle);
+            
+            GUI.Box(_scoreForm, GUIContent.none, _windowStyle);
 
+            Rect paddedRect = new Rect(_scoreForm.x + 10f, _scoreForm.y + 10f, _scoreForm.width - 20f, _scoreForm.height - 20f);
+
+            GUILayout.BeginArea(paddedRect);
+
+            GUILayout.FlexibleSpace();
             GUILayout.Label("Scoreboard", new GUIStyle(_labelStyle)
             {
                 fontSize = 20,
@@ -966,8 +1141,7 @@ namespace CamMod
 
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
-            GUILayout.EndArea(); 
-            EndMargin(ref _scoreForm);
+            GUILayout.EndArea();
         }
 
         private static void TimerGUI()
@@ -975,14 +1149,13 @@ namespace CamMod
             _savedTimerStyle = new GUIStyle(_labelStyle) { fontSize = 25, alignment = TextAnchor.MiddleCenter };
 
             if (!_timer) return;
-            BeginMargin(ref _timerForm, new Rect(20, 860, 320, 200));
+            _timerForm = new Rect(Screen.width - 330f, 860, 320, 200);
+            
+            GUI.Box(_timerForm, "Stopwatch", _windowStyle);
 
-            GUILayout.BeginArea(_timerForm);
-            GUILayout.Box("Stopwatch", _windowStyle, GUILayout.Width(_timerForm.width), GUILayout.Height(_timerForm.height));
-            GUILayout.EndArea();
-            EndMargin(ref _timerForm);
+            Rect paddedRect = new Rect(_timerForm.x + 10f, _timerForm.y + 10f, _timerForm.width - 20f, _timerForm.height - 20f);
 
-            GUILayout.BeginArea(_timerForm);
+            GUILayout.BeginArea(paddedRect);
             GUILayout.BeginHorizontal();
 
             if (SavedTimes.Count != 0)
@@ -1054,7 +1227,7 @@ namespace CamMod
 
             GUILayout.FlexibleSpace();
 
-            if (GUILayout.Button("Clear Saved Time", _buttonStyle))
+            if (GUILayout.Button("Clear Saved Time", _buttonStyle, GUILayout.Height(23)))
             {
                 SavedTimes.Clear();
             }
@@ -1066,7 +1239,7 @@ namespace CamMod
 
         private static void SettingsDisplay()
         {
-            _settingsForm = new Rect(Screen.width - 270f, 335f, 260f, 390f);
+            _settingsForm = new Rect(Screen.width - 270f, 410f, 260f, 390f);
 
             // Draw window box first
             GUI.Box(_settingsForm, "Settings", _windowStyle);
@@ -1174,8 +1347,7 @@ namespace CamMod
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
         }
-
-
+        
         private static void ChangeName(string name)
         {
             GorillaComputer.instance.currentName = name;
@@ -1184,7 +1356,7 @@ namespace CamMod
             PlayerPrefs.SetString("playerName", name);
             PlayerPrefs.Save();
         }
-
+        
         private static void ScoreUpdater()
         {
             if (Keyboard.current.fKey.wasPressedThisFrame && _teamScore1 < 5) _teamScore1++;
@@ -1496,7 +1668,7 @@ namespace CamMod
             };
             bool wasPressedThisFrame = Keyboard.current.digit0Key.wasPressedThisFrame;
             for (int i = 0; i < keys.Length; i++) {
-                if (keys[i] &&  i < _playerList.Count) {
+                if (keys[i] &&  i < _playerList.Length) {
                     if (_playerList != null)
                     {
                         _spec = _playerList[i].gameObject;
