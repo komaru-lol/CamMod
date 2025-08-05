@@ -134,7 +134,8 @@ namespace CamMod
         private static float _targetClipping = _defaultClipping;
         private static bool IsSpecNull => _spec == null;
         private static float DesiredClipPlane;
-        
+
+        private bool isSetup = false;
         public static void Setup()
         {
             for (int i = 0; i < 6; i++)
@@ -147,11 +148,6 @@ namespace CamMod
             RpcManager.Init();
         }
         
-        void Start()
-        { 
-            Setup();
-        }
-
         /*void OnEnable()
         {
             HarmonyPatches.ApplyPatches();
@@ -214,6 +210,11 @@ namespace CamMod
 
         private void Update()
         {
+            if (!isSetup) {
+                Setup();
+                isSetup = true;
+            }
+            
             if (Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 _menuUI = !_menuUI;
@@ -274,6 +275,11 @@ namespace CamMod
             if (NameTagFont == null)
             {
                 NameTagFont = TMP_FontAsset.CreateFontAsset(CreateFont("CamMod.Assets.nametagfont.ttf"));
+            }
+
+            if (Keyboard.current.digit0Key.wasPressedThisFrame) {
+                _spec = null;
+                _specRig = null;
             }
         }
 
@@ -647,7 +653,7 @@ namespace CamMod
                 GUILayout.Space(10f);
                 string[] themes = Enum.GetNames(typeof(Theme));
                 int nextIndex = ((int)_currentTheme + 1) % themes.Length;
-                Plugin.ColorButton($"Theme: {_currentTheme} → {themes[nextIndex]}", Color.white, CycleTheme, Plugin._menuForm.width - 20f, 30f);
+                Plugin.ColorButton($"Theme: {_currentTheme.ToString()} → {themes[nextIndex].ToString()}", Color.white, CycleTheme, Plugin._menuForm.width - 20f, 30f);
                 GUILayout.Space(5f);
                 Plugin.ColorButton("Spectate Others", Plugin._spectatorList ? Color.green : Color.white, Plugin.SpectateAction, Plugin._menuForm.width - 20f, 30f);
                 GUILayout.Space(5f);
@@ -884,7 +890,7 @@ namespace CamMod
             if (_cachedDarkTexture == null)
             {
                 _cachedDarkTexture = new Texture2D(1, 1);
-                _cachedDarkTexture.SetPixel(0, 0, new Color32(25, 28, 28, 170));
+                _cachedDarkTexture.SetPixel(0, 0, _windowColor);
                 _cachedDarkTexture.Apply();
             }
 
@@ -1687,7 +1693,7 @@ namespace CamMod
                 }
             }
 
-            if (wasPressedThisFrame && _spec != null)
+            if (!PhotonNetwork.InRoom)
             {
                 _spec = null;
                 _specRig = null;

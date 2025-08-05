@@ -11,7 +11,6 @@ namespace LoadThing
         {
             _loaderObject = new GameObject();
             _loaderObject.AddComponent<Plugin>();
-            Plugin.Setup();
             Object.DontDestroyOnLoad(_loaderObject);            
         }
     }
