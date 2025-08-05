@@ -1255,7 +1255,7 @@ namespace CamMod
 
             GUI.Box(_settingsForm, "Settings", _windowStyle);
 
-            Rect paddedRect = new Rect(_settingsForm.x + 10f, _settingsForm.y + 40f, _settingsForm.width - 20f, _settingsForm.height - 50f);
+            Rect paddedRect = new Rect(_settingsForm.x + 10f, _settingsForm.y + 40f, _settingsForm.width - 10f, _settingsForm.height - 50f);
 
             GUILayout.BeginArea(paddedRect);
             
