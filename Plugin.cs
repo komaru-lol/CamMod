@@ -1014,7 +1014,7 @@ namespace CamMod
                 fontSize = 20,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
-            }, GUILayout.Width(_scoreForm.width));
+            }, GUILayout.Width(paddedRect.width));
 
             GUILayout.Label("(F) Add, (G) Subtract for Team 1 | (H) Add, (J) Subtract for Team 2",
                 new GUIStyle(_labelStyle)
@@ -1031,7 +1031,7 @@ namespace CamMod
 
             GUILayout.BeginHorizontal();
 
-            GUILayout.BeginVertical(GUILayout.Width(_scoreForm.width / 2), GUILayout.Height(100));
+            GUILayout.BeginVertical(GUILayout.Width(paddedRect.width / 2), GUILayout.Height(100));
 
             GUILayout.Label(_team1Name, new GUIStyle(_labelStyle)
             {
@@ -1086,7 +1086,7 @@ namespace CamMod
 
             GUILayout.EndVertical();
 
-            GUILayout.BeginVertical(GUILayout.Width(_scoreForm.width / 2), GUILayout.Height(100));
+            GUILayout.BeginVertical(GUILayout.Width(paddedRect.width / 2), GUILayout.Height(100));
 
             GUILayout.Label(_team2Name, new GUIStyle(_labelStyle)
             {
