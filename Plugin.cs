@@ -219,11 +219,12 @@ namespace CamMod
                 _menuUI = !_menuUI;
                 Debug.Log($"Menu Toggled: {_menuUI}");
             }
-
+            
             SpecBackground();
             NoSmoothRigs();
+            GetVelocity();
             MiniMap();
-
+            
             if (_timer)
             {
                 if (Keyboard.current.rightShiftKey.wasPressedThisFrame)
@@ -273,6 +274,17 @@ namespace CamMod
             if (NameTagFont == null)
             {
                 NameTagFont = TMP_FontAsset.CreateFontAsset(CreateFont("CamMod.Assets.nametagfont.ttf"));
+            }
+        }
+
+        private static void GetVelocity() {
+            if (_velocity == null) {
+                if (_spec != null && _specRig != null) {
+                    _velocity = _specRig.LatestVelocity();
+                }
+                else {
+                    _velocity = GorillaTagger.Instance.offlineVRRig.LatestVelocity();
+                }
             }
         }
 
@@ -595,7 +607,7 @@ namespace CamMod
         private static Rect _menuForm = new Rect((Screen.width - 900f) / 2f, (Screen.height - 700f) / 2f, 900f, 700f);
         private static Rect _casterModForm = new Rect(10f, 10f, 250f, 360f);
         private static Rect _timerForm = new Rect(Screen.width - 320f, Screen.height - 220f, 320f, 200f);
-        private static Rect _settingsForm = new Rect(Screen.width - 280f, 330f, 260f, 390f);
+        private static Rect _settingsForm = new Rect(Screen.width - 270f, 410f, 260f, 390f);
         private static Rect _scoreForm = new Rect(10f, 440f, 300f, 220f);
 
         private static void BeginMargin(ref Rect oldRect, Rect newRect)
@@ -830,7 +842,7 @@ namespace CamMod
             GUIStyle s = new GUIStyle(_labelStyle)
             {
                 fontSize = 22,
-                fontStyle = FontStyle.Italic,
+                fontStyle = FontStyle.BoldAndItalic,
                 alignment = TextAnchor.MiddleLeft,
                 normal = { textColor = Color.white },
                 hover = { textColor = Color.white },
@@ -1025,7 +1037,7 @@ namespace CamMod
                     alignment = TextAnchor.MiddleCenter,
                     wordWrap = true
                 },
-                GUILayout.Width(_scoreForm.width - 10));
+                GUILayout.Width(paddedRect.width - 10));
 
             GUILayout.Space(10);
 
@@ -1235,26 +1247,44 @@ namespace CamMod
             GUILayout.EndArea();
         }
 
-        private static Vector2 _settingsScrollPos; 
+        private static Vector2 _settingsScrollPos;
 
         private static void SettingsDisplay()
         {
-            _settingsForm = new Rect(Screen.width - 270f, 410f, 260f, 390f);
+            _settingsForm = new Rect(Screen.width - 260f, 410f, 250f, 390f);
 
-            // Draw window box first
+            // Draw titled box
             GUI.Box(_settingsForm, "Settings", _windowStyle);
 
-            // Padding inside the window
-            Rect paddedRect = new Rect(_settingsForm.x + 10f, _settingsForm.y + 40f, _settingsForm.width - 20f, _settingsForm.height - 50f);
+            float titleBarHeight = 25f;
 
-            GUILayout.BeginArea(paddedRect);
-            
+            // Adjusted inner area to not overlap the title
+            Rect paddedRect = new Rect(
+                _settingsForm.x + 10f,
+                _settingsForm.y + titleBarHeight,
+                _settingsForm.width - 20f,
+                _settingsForm.height - titleBarHeight - 10f
+            );
+
+            GUI.BeginGroup(paddedRect);
+
             var oldWidth = GUI.skin.verticalScrollbar.fixedWidth;
             GUI.skin.verticalScrollbar.fixedWidth = 0;
 
-            _settingsScrollPos = GUILayout.BeginScrollView(_settingsScrollPos, false, true, GUILayout.Width(paddedRect.width), GUILayout.Height(paddedRect.height));
+            _settingsScrollPos = GUILayout.BeginScrollView(
+                _settingsScrollPos,
+                false,
+                true,
+                GUILayout.Width(paddedRect.width),
+                GUILayout.Height(paddedRect.height)
+            );
 
-            // Your scrollable content:
+            // Center contents
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            GUILayout.BeginVertical(GUILayout.Width(paddedRect.width - 20f)); // Adjust for padding
+
+            // --- Begin actual UI content ---
             if (GUILayout.Button("Config: " + _availableConfigs[_selectedConfigIndex], _buttonStyle))
             {
                 _selectedConfigIndex = (_selectedConfigIndex + 1) % _availableConfigs.Length;
@@ -1294,20 +1324,25 @@ namespace CamMod
             {
                 LabelSlider("CoolDown", ref _switchCooldown, 0.1f, 3f);
             }
-            
+
             GUILayout.Space(3f);
 
             if (GUILayout.Button("Smoothing Type: " + _smoothingType, _buttonStyle))
                 _smoothingType = (_smoothingType % 4) + 1;
 
+            // --- End actual UI content ---
+
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
             GUILayout.EndScrollView();
 
-            // Restore vertical scrollbar width
             GUI.skin.verticalScrollbar.fixedWidth = oldWidth;
 
-            GUILayout.EndArea();
+            GUI.EndGroup();
         }
-       
+
         private static void DistanceText()
         {
             if (_dist != 0 && _distanceDisplay && _spec != null)
@@ -1336,11 +1371,10 @@ namespace CamMod
         private static void LabelSlider(string label, ref float value, float min, float max)
         {
             GUILayout.BeginHorizontal();
-            GUILayout.Label($"{label}: {value:F2}", new GUIStyle(GUI.skin.label)
-            {
+            GUILayout.Label($"{label}: {value:F2}", new GUIStyle(GUI.skin.label) {
                 normal = { textColor = _labelTextColor },
                 fontStyle = FontStyle.Bold,
-            }, GUILayout.Width(120f));
+            });
             GUILayout.BeginVertical();
             GUILayout.Space(5f);
             value = GUIUtils.RoundedSlider(value, min, max, _sliderBackground, _sliderFill);
