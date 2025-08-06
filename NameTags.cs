@@ -1,101 +1,160 @@
-﻿using HarmonyLib;
+﻿using System.Collections.Generic;
+using HarmonyLib;
 using TMPro;
 using UnityEngine;
-using System.Collections.Generic;
 
 namespace CamMod
 {
-	internal class NameTags
-	{
-		private static Dictionary<VRRig, GameObject> nameTagObjects = new();
-		private static Dictionary<VRRig, GameObject> fpsTagObjects = new();
+    internal class NameTags
+    {
+        private static Dictionary<VRRig, GameObject> nameTags = new Dictionary<VRRig, GameObject>();
+        private static Dictionary<VRRig, GameObject> fpsTags = new Dictionary<VRRig, GameObject>();
 
-		public static void EnableNameTags()
-		{
-			foreach (VRRig rig in GorillaParent.instance.vrrigs)
-			{
-				if (rig != null && !rig.isOfflineVRRig)
-				{
-					// --- NameTag ---
-					if (Plugin.IsNameTags)
-					{
-						Color color = (rig.mainSkin.material.name.Contains("gorilla_body(Clone) (Instance)")
-									   ? rig.mainSkin.material.color
-									   : new Color(1f, 0.1f, 0f));
+        public static void UpdateNameTags()
+        {
+            CleanupMissingRigs(nameTags);
+            CleanupMissingRigs(fpsTags);
 
-						if (!nameTagObjects.ContainsKey(rig))
-						{
-							GameObject obj = new GameObject("NameTags");
-							obj.transform.SetParent(rig.transform);
-							obj.transform.localPosition = Vector3.up * 0.5f;
+            if (GorillaParent.instance == null) return;
 
-							TextMeshPro textMeshPro = obj.AddComponent<TextMeshPro>();
-							textMeshPro.text = RigManager.ReachForName(rig).NickName.ToUpper();
-							textMeshPro.alignment = TextAlignmentOptions.Center;
-							textMeshPro.color = color;
-							textMeshPro.fontSize = 1.75f;
-							textMeshPro.font = Plugin.NameTagFont;
+            foreach (VRRig rig in GorillaParent.instance.vrrigs)
+            {
+                if (rig == null || rig == GorillaTagger.Instance.offlineVRRig) continue;
 
-							nameTagObjects[rig] = obj;
-						}
-						else
-						{
-							GameObject obj = nameTagObjects[rig];
-							TextMeshPro textMeshPro = obj.GetComponent<TextMeshPro>();
-							textMeshPro.color = color; // Update color every frame
-							obj.transform.rotation = Quaternion.LookRotation(Plugin.Tpc.transform.forward);
-						}
-					}
-					else if (nameTagObjects.ContainsKey(rig))
-					{
-						Object.Destroy(nameTagObjects[rig]);
-						nameTagObjects.Remove(rig);
-					}
+                if (!nameTags.ContainsKey(rig))
+                    CreateNameTag(rig);
+                else
+                    UpdateNameTag(rig);
 
-					// --- FPS Tag ---
-					if (Plugin.IsFpsTags)
-					{
-						int fps = (int)Traverse.Create(rig).Field("fps").GetValue();
-						Color color = GetFpsColor(ref fps);
+                if (Plugin.IsFpsTags)
+                {
+                    if (!fpsTags.ContainsKey(rig))
+                        CreateFPSTag(rig);
+                    else
+                        UpdateFPSTag(rig);
+                }
+                else
+                {
+                    if (fpsTags.TryGetValue(rig, out var fpsObj))
+                    {
+                        Object.Destroy(fpsObj);
+                        fpsTags.Remove(rig);
+                    }
+                }
+            }
+        }
 
-						if (!fpsTagObjects.ContainsKey(rig))
-						{
-							GameObject obj2 = new GameObject("FpsTags");
-							obj2.transform.SetParent(rig.transform);
-							obj2.transform.localPosition = Vector3.up * 0.7f;
+        private static void CreateNameTag(VRRig rig)
+        {
+            Color nameColor = rig.mainSkin.material.name.Contains("gorilla_body(Clone) (Instance)")
+                ? rig.mainSkin.material.color
+                : new Color(1f, 0.1f, 0f);
 
-							TextMeshPro textMeshPro2 = obj2.AddComponent<TextMeshPro>();
-							textMeshPro2.text = $"{fps} HZ";
-							textMeshPro2.alignment = TextAlignmentOptions.Center;
-							textMeshPro2.color = color;
-							textMeshPro2.fontSize = 1.75f;
-							textMeshPro2.font = Plugin.NameTagFont;
+            GameObject nameTagObj = new GameObject("NameTag");
+            nameTagObj.transform.SetParent(rig.transform);
+            nameTagObj.transform.localPosition = Vector3.up * 0.5f;
+            nameTagObj.transform.localScale = Vector3.one;
 
-							fpsTagObjects[rig] = obj2;
-						}
-						else
-						{
-							TextMeshPro tmp = fpsTagObjects[rig].GetComponent<TextMeshPro>();
-							tmp.text = $"{fps} HZ";
-							tmp.color = color;
-							fpsTagObjects[rig].transform.rotation = Quaternion.LookRotation(Plugin.Tpc.transform.forward);
-						}
-					}
-					else if (fpsTagObjects.ContainsKey(rig))
-					{
-						Object.Destroy(fpsTagObjects[rig]);
-						fpsTagObjects.Remove(rig);
-					}
-				}
-			}
-		}
+            TextMeshPro tmp = nameTagObj.AddComponent<TextMeshPro>();
+            tmp.enableAutoSizing = false;
+            tmp.fontSize = 1.75f;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = nameColor;
+            tmp.font = Plugin.NameTagFont;
+            tmp.text = rig.playerText1.text;
 
-		private static Color GetFpsColor(ref int fps)
-		{
-			if (fps > 58) return new Color(0f, 1f, 0f);
-			if (fps > 49) return new Color(1f, 1f, 0f);
-			if (fps > 45) return new Color(1f, 0.5f, 0f);
-			return new Color(1f, 0f, 0f);
-		}
-	}
+            nameTags[rig] = nameTagObj;
+
+            UpdateNameTag(rig); // Immediately update rotation/text
+        }
+
+        private static void UpdateNameTag(VRRig rig)
+        {
+            if (!nameTags.TryGetValue(rig, out GameObject nameTagObj) || nameTagObj == null) return;
+
+            TextMeshPro tmp = nameTagObj.GetComponent<TextMeshPro>();
+            if (tmp == null) return;
+
+            tmp.color = rig.mainSkin.material.name.Contains("gorilla_body(Clone) (Instance)")
+                ? rig.mainSkin.material.color
+                : new Color(1f, 0.1f, 0f);
+
+            tmp.text = rig.playerText1.text;
+
+            if (Plugin.Tpc != null && Plugin.Tpc.transform != null)
+            {
+                Vector3 directionToCamera = Plugin.Tpc.transform.position - nameTagObj.transform.position;
+                directionToCamera.y = 0; // flatten Y to keep upright
+                if (directionToCamera.sqrMagnitude > 0.001f)
+                {
+                    nameTagObj.transform.rotation = Quaternion.LookRotation(directionToCamera);
+                }
+            }
+        }
+
+        private static void CreateFPSTag(VRRig rig)
+        {
+            GameObject fpsTagObj = new GameObject("FpsTag");
+            fpsTagObj.transform.SetParent(rig.transform);
+            fpsTagObj.transform.localPosition = Vector3.up * 0.7f;
+            fpsTagObj.transform.localScale = Vector3.one;
+
+            TextMeshPro tmp = fpsTagObj.AddComponent<TextMeshPro>();
+            tmp.fontSize = 1.75f;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.font = Plugin.NameTagFont;
+
+            fpsTags[rig] = fpsTagObj;
+
+            UpdateFPSTag(rig);
+        }
+
+        private static void UpdateFPSTag(VRRig rig)
+        {
+            if (!fpsTags.TryGetValue(rig, out GameObject fpsTagObj) || fpsTagObj == null) return;
+
+            TextMeshPro tmp = fpsTagObj.GetComponent<TextMeshPro>();
+            if (tmp == null) return;
+
+            int fps = (int)Traverse.Create(rig).Field("fps").GetValue();
+            tmp.text = $"{fps} HZ";
+            tmp.color = GetFpsColor(fps);
+
+            if (Plugin.Tpc != null && Plugin.Tpc.transform != null)
+            {
+                Vector3 directionToCamera = Plugin.Tpc.transform.position - fpsTagObj.transform.position;
+                directionToCamera.y = 0; // keep upright
+                if (directionToCamera.sqrMagnitude > 0.001f)
+                {
+                    fpsTagObj.transform.rotation = Quaternion.LookRotation(directionToCamera);
+                }
+            }
+        }
+
+        private static void CleanupMissingRigs<T>(Dictionary<VRRig, T> dict) where T : Object
+        {
+            if (GorillaParent.instance == null) return;
+
+            List<VRRig> toRemove = new List<VRRig>();
+            foreach (var kvp in dict)
+            {
+                if (kvp.Key == null || !GorillaParent.instance.vrrigs.Contains(kvp.Key))
+                {
+                    if (kvp.Value != null)
+                        Object.Destroy(kvp.Value);
+                    toRemove.Add(kvp.Key);
+                }
+            }
+            foreach (var rig in toRemove)
+                dict.Remove(rig);
+        }
+
+        private static Color GetFpsColor(int fps)
+        {
+            if (fps > 58) return Color.green;
+            if (fps > 49) return Color.yellow;
+            if (fps > 45) return new Color(1f, 0.5f, 0f);
+            return Color.red;
+        }
+    }
 }

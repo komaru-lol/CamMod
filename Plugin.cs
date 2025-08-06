@@ -9,7 +9,9 @@ using System;
 using GorillaNetworking;
 using System.IO;
 using System.Reflection;
+using CamMod.Patching;
 using GorillaExtensions;
+using Photon.Realtime;
 using TMPro;
 using Debug = UnityEngine.Debug;
 
@@ -77,8 +79,9 @@ namespace CamMod
         private static bool _deletedCamera;
         private static bool _minimap;
         private static bool _isHeadTracking;
-        public static bool IsNameTags;
+        private static bool _isNameTags;
         public static bool IsFpsTags;
+        private static bool _isKillFeed;
         
         private static readonly Action DistanceAction = () => CloseMenu(ref _distanceDisplay);
         private static readonly Action ScoreAction = () => CloseMenu(ref _scoreDisplay);
@@ -87,6 +90,7 @@ namespace CamMod
         private static readonly Action CastingAction = () => CloseMenu(ref _casterMods);
         private static readonly Action SettingsAction = () => CloseMenu(ref _settingsDisplay);
         private static readonly Action Toggle = () => SwitchBool(ref _movement);
+        private static readonly Action Toggle2 = () => SwitchBool(ref _isKillFeed);
         private static readonly Action MinimapAction = () => CloseMenu(ref _minimap);
 
         private static int _teamScore1;
@@ -136,19 +140,20 @@ namespace CamMod
         private static float DesiredClipPlane;
 
         private bool isSetup = false;
-        public static void Setup()
+
+        private static void Setup()
         {
             for (int i = 0; i < 6; i++)
             {
                 Speeds.Add(0);
             }
-            
+            ToggleMic.SetupMicCanvas();
             EnsureDefaultConfig();
             LoadSettings();
             RpcManager.Init();
         }
         
-        /*void OnEnable()
+        void OnEnable()
         {
             HarmonyPatches.ApplyPatches();
         }
@@ -156,9 +161,9 @@ namespace CamMod
         void OnDisable()
         {
             HarmonyPatches.Unpatch();
-        }*/
-        
-        public static void ChangeWeather(BetterDayNightManager.WeatherType weathertype)
+        }
+
+        private static void ChangeWeather(BetterDayNightManager.WeatherType weathertype)
         {
             BetterDayNightManager.instance.weatherCycle[BetterDayNightManager.instance.currentWeatherIndex + 1] = weathertype;
             BetterDayNightManager.instance.currentWeatherIndex++;
@@ -225,6 +230,8 @@ namespace CamMod
             NoSmoothRigs();
             GetVelocity();
             MiniMap();
+            ToggleMic.SetupMicToggle();
+            ToggleKillFeed(_isKillFeed);
             
             if (_timer)
             {
@@ -238,6 +245,19 @@ namespace CamMod
             {
                 _stopWatchTime += Time.deltaTime;
             }
+
+            if (PhotonNetwork.InRoom)
+            {
+                GorillaTagManager gtm = FindObjectOfType<GorillaTagManager>();
+                if (gtm == null)
+                    return;
+                
+                if (gtm != null && _timing && !gtm.currentInfectedArray.Contains(-1))
+                {
+                    _timing = false;
+                }
+            }
+
 
             if (_scoreDisplay)
             {
@@ -254,8 +274,7 @@ namespace CamMod
                 Wasd();
             }
 
-            if (_playerList == null)
-                _playerList = GorillaParent.instance.vrrigs.ToArray();
+            _playerList ??= GorillaParent.instance.vrrigs.ToArray();
 
             if (PhotonNetwork.InRoom)
             {
@@ -269,12 +288,14 @@ namespace CamMod
                     _specRig = null;
                 }
             }
-
-            NameTags.EnableNameTags();
             
             if (NameTagFont == null)
             {
                 NameTagFont = TMP_FontAsset.CreateFontAsset(CreateFont("CamMod.Assets.nametagfont.ttf"));
+            }
+            
+            if (_isNameTags || IsFpsTags) {
+                NameTags.UpdateNameTags();
             }
 
             if (Keyboard.current.digit0Key.wasPressedThisFrame) {
@@ -283,6 +304,23 @@ namespace CamMod
             }
         }
 
+        private void ToggleKillFeed(bool enable)
+        {
+            if (enable)
+            {
+                TagEventManager.OnTagEvent += OnTagEventHandler;
+            }
+            else
+            {
+                TagEventManager.OnTagEvent -= OnTagEventHandler;
+            }
+        }
+        
+        private void OnTagEventHandler(Player tagger, Player tagged)
+        {
+            UnityEngine.Debug.Log($"{tagger.NickName} tagged {tagged.NickName}");
+        }
+        
         private static void GetVelocity() {
             if (_velocity == null) {
                 if (_spec != null && _specRig != null) {
@@ -358,7 +396,7 @@ namespace CamMod
                     case "SmoothingType": _smoothingType = int.Parse(value); break;
                     case "RigLerp": _rigLerp = float.Parse(value); break;
                     case "Tracking": _isHeadTracking = value == "1"; break;
-                    case "NameTags": IsNameTags = value == "1"; break;
+                    case "NameTags": _isNameTags = value == "1"; break;
                     case "FpsTags": IsFpsTags = value == "1"; break;
                     case "WASD": _movement = value == "1"; break;
                     case "Theme":
@@ -388,7 +426,7 @@ namespace CamMod
                 $"SmoothingType={_smoothingType}",
                 $"RigLerp={_rigLerp}",
                 $"Tracking={(_isHeadTracking ? "1" : "0")}",
-                $"NameTags={(IsNameTags ? "1" : "0")}",
+                $"NameTags={(_isNameTags ? "1" : "0")}",
                 $"FpsTags={(IsFpsTags ? "1" : "0")}",
                 $"WASD={(_movement ? "1" : "0")}",
                 $"Theme={_currentTheme}"
@@ -517,11 +555,22 @@ namespace CamMod
             
             _windowStyle = _buttonStyle = _labelStyle = _textFieldStyle = null;
             _lastAppliedTheme = _currentTheme;
+            
+            if (_cachedDarkTexture != null)
+            {
+                Destroy(_cachedDarkTexture);
+                _cachedDarkTexture = null;
+            }
+
+            _cachedDarkTexture = new Texture2D(1, 1);
+            _cachedDarkTexture.SetPixel(0, 0, _windowColor);
+            _cachedDarkTexture.Apply();
         }
         
         public void CycleTheme()
         {
             _currentTheme = (Theme)(((int)_currentTheme + 1) % Enum.GetValues(typeof(Theme)).Length);
+            ClearTextureCache();
             ApplyTheme();
         }
 
@@ -839,13 +888,13 @@ namespace CamMod
         
         public void DrawBoard()
         {
-            int Y = Screen.height - 35;
-            int Spacing = 35;
-            int Width = 320;
-            int Height = 30;
-            int Number = 0;
+            int startY = Screen.height - 35;
+            int spacing = 35;
+            int width = 320;
+            int height = 30;
+            int number = 1;
 
-            GUIStyle s = new GUIStyle(_labelStyle)
+            GUIStyle style = new GUIStyle(_labelStyle)
             {
                 fontSize = 22,
                 fontStyle = FontStyle.BoldAndItalic,
@@ -854,20 +903,27 @@ namespace CamMod
                 hover = { textColor = Color.white },
             };
 
-            _playerList = GorillaParent.instance.vrrigs.ToArray();
-            foreach (VRRig r in _playerList)
+            var rigs = GorillaParent.instance.vrrigs;
+            foreach (VRRig r in rigs)
             {
-                if (r != null)
-                {
-                    int CardPosition = Y - (Number * Spacing);
-                    Draw(new Rect(20, CardPosition, Width, Height), -15);
-                    DrawColorCard(new Rect(60, CardPosition, 25, Height), -15, r);
+                if (r == null || r.isOfflineVRRig || r.isMyPlayer)
+                    continue;
 
-                    GUI.Label(new Rect(25, CardPosition, Width - 20, Height), Number.ToString(), s);
-                    GUI.Label(new Rect(85, CardPosition, Width - 20, Height), r.playerNameVisible, s);
+                int yPos = startY + ((number - 1) * spacing);
 
-                    Number++;
-                }
+                Rect backgroundRect = new Rect(20, yPos, width, height);
+                Rect colorRect = new Rect(60, yPos, 25, height);
+                Rect numberRect = new Rect(25, yPos, width - 20, height);
+                Rect nameRect = new Rect(90, yPos, width - 90, height);
+
+                Draw(backgroundRect, -15);
+                DrawColorCard(colorRect, -15, r);
+
+                GUI.Label(numberRect, number.ToString(), style);
+                GUI.Label(nameRect, r.playerNameVisible, style);
+
+                number++;
+                if (number > 9) break; // Limit to 9 players
             }
         }
         
@@ -886,14 +942,7 @@ namespace CamMod
             skewMatrix.m11 = 1;
 
             GUI.matrix = Matrix4x4.TRS(new Vector3(rect.x, rect.y, 0), Quaternion.identity, Vector3.one) * skewMatrix;
-
-            if (_cachedDarkTexture == null)
-            {
-                _cachedDarkTexture = new Texture2D(1, 1);
-                _cachedDarkTexture.SetPixel(0, 0, _windowColor);
-                _cachedDarkTexture.Apply();
-            }
-
+            
             GUI.DrawTexture(new Rect(0, 0, rect.width, rect.height), _cachedDarkTexture, ScaleMode.StretchToFill);
 
             GUI.matrix = originalMatrix;
@@ -955,6 +1004,9 @@ namespace CamMod
     
             ColorButton("WASD", _movement ? Color.green : Color.white, Toggle);
             GUILayout.Space(8f);
+            
+            ColorButton("Kill Feed", _isKillFeed ? Color.green : Color.white, Toggle2);
+            GUILayout.Space(8f);
     
             GUILayout.Label("Room Code", _labelStyle);
             _roomCode = GUILayout.TextField(_roomCode.ToUpper(), 10, _textFieldStyle);
@@ -976,10 +1028,10 @@ namespace CamMod
             }
 
             GUILayout.Space(5f);
-            string tagLabel = IsNameTags ? "<color=green>NameTags: ON</color>" : "NameTags: OFF";
+            string tagLabel = _isNameTags ? "<color=green>NameTags: ON</color>" : "NameTags: OFF";
             if (GUILayout.Button(tagLabel, _buttonStyle))
-                IsNameTags = !IsNameTags;
-            if (IsNameTags)
+                _isNameTags = !_isNameTags;
+            if (_isNameTags)
             {
                 string fpsLabel = IsFpsTags ? "<color=green>FPS Tags: ON</color>" : "FPS Tags: OFF";
                 if (GUILayout.Button(fpsLabel, _buttonStyle))
@@ -1018,7 +1070,6 @@ namespace CamMod
         private static void ScoreDisplay()
         {
             _scoreForm = new Rect(10, 440, 300, 240);
-
             
             GUI.Box(_scoreForm, GUIContent.none, _windowStyle);
 
@@ -1178,11 +1229,13 @@ namespace CamMod
 
             if (SavedTimes.Count != 0)
             {
-                if (_stopWatchTime < SavedTimes.First())
+                float bestTime = SavedTimes.First();
+    
+                if (_stopWatchTime < bestTime)
                 {
                     GUI.contentColor = Color.red;
                 }
-                else if (_stopWatchTime > SavedTimes.First())
+                else if (_stopWatchTime >= bestTime + 2f)
                 {
                     GUI.contentColor = Color.green;
                 }
