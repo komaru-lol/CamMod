@@ -4,7 +4,7 @@ namespace CamMod
 {
     internal class GUIUtils
     {
-       public static void DrawTexture(
+        private static void DrawTexture(
             Rect rect,
             Texture2D texture,
             int borderRadius,

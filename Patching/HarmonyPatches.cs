@@ -1,33 +1,34 @@
 ﻿using System.Reflection;
 using HarmonyLib;
 
-namespace CamMod.Patching;
-
-internal class HarmonyPatches
-{
-    private static Harmony _instance = null;
-
-    private static bool IsPatched { get; set; }
-
-    internal static void ApplyPatches()
+namespace CamMod.Patching {
+    internal class HarmonyPatches
     {
-        if (!IsPatched)
+        private static Harmony _instance = null;
+
+        private static bool IsPatched { get; set; }
+
+        internal static void ApplyPatches()
         {
-            if (_instance == null)
+            if (!IsPatched)
             {
-                _instance = new Harmony(PluginInfo.Guid);
+                if (_instance == null)
+                {
+                    _instance = new Harmony(PluginInfo.Guid);
+                }
+                _instance.PatchAll(Assembly.GetExecutingAssembly());
+                IsPatched = true;
             }
-            _instance.PatchAll(Assembly.GetExecutingAssembly());
-            IsPatched = true;
         }
-    }
 
-    internal static void Unpatch()
-    {
-        if (IsPatched && _instance != null)
+        internal static void Unpatch()
         {
-            _instance.UnpatchSelf();
-            IsPatched = false;
+            if (IsPatched && _instance != null)
+            {
+                _instance.UnpatchSelf();
+                IsPatched = false;
+            }
         }
     }
 }
+

@@ -2,7 +2,7 @@
 
   <PropertyGroup>
 	  <TargetFramework>netstandard2.1</TargetFramework>
-	  <LangVersion>default</LangVersion>
+	  <LangVersion>9</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -428,5 +428,9 @@
   <ItemGroup>
     <Compile Remove="MyLoader.cs" />
     <Compile Remove="AssetLoader.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Patching\Patches\" />
   </ItemGroup>
 </Project>

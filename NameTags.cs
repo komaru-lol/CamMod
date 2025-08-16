@@ -61,11 +61,11 @@ namespace CamMod
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.color = nameColor;
             tmp.font = Plugin.NameTagFont;
-            tmp.text = rig.playerText1.text;
+            tmp.text = rig.playerNameVisible;
 
             nameTags[rig] = nameTagObj;
 
-            UpdateNameTag(rig); // Immediately update rotation/text
+            UpdateNameTag(rig);
         }
 
         private static void UpdateNameTag(VRRig rig)
@@ -79,16 +79,11 @@ namespace CamMod
                 ? rig.mainSkin.material.color
                 : new Color(1f, 0.1f, 0f);
 
-            tmp.text = rig.playerText1.text;
+            tmp.text = rig.playerNameVisible;
 
-            if (Plugin.Tpc != null && Plugin.Tpc.transform != null)
+            if (Plugin.TpcObject != null && Plugin.TpcObject.transform != null)
             {
-                Vector3 directionToCamera = Plugin.Tpc.transform.position - nameTagObj.transform.position;
-                directionToCamera.y = 0; // flatten Y to keep upright
-                if (directionToCamera.sqrMagnitude > 0.001f)
-                {
-                    nameTagObj.transform.rotation = Quaternion.LookRotation(directionToCamera);
-                }
+                Quaternion.LookRotation(Plugin.Tpc.transform.forward);
             }
         }
 
@@ -120,14 +115,9 @@ namespace CamMod
             tmp.text = $"{fps} HZ";
             tmp.color = GetFpsColor(fps);
 
-            if (Plugin.Tpc != null && Plugin.Tpc.transform != null)
+            if (Plugin.TpcObject != null && Plugin.TpcObject.transform != null)
             {
-                Vector3 directionToCamera = Plugin.Tpc.transform.position - fpsTagObj.transform.position;
-                directionToCamera.y = 0; // keep upright
-                if (directionToCamera.sqrMagnitude > 0.001f)
-                {
-                    fpsTagObj.transform.rotation = Quaternion.LookRotation(directionToCamera);
-                }
+                Quaternion.LookRotation(Plugin.Tpc.transform.forward);
             }
         }
 

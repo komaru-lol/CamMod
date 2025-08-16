@@ -11,8 +11,10 @@ using System.IO;
 using System.Reflection;
 using CamMod.Patching;
 using GorillaExtensions;
+using HarmonyLib;
 using Photon.Realtime;
 using TMPro;
+using UnityEngine.UI;
 using Debug = UnityEngine.Debug;
 
 namespace CamMod
@@ -20,7 +22,7 @@ namespace CamMod
     [BepInPlugin(PluginInfo.Guid, PluginInfo.Name, PluginInfo.Version)]
     public class Plugin : BaseUnityPlugin
     {
-        private static GameObject _tpcObject;
+        public static GameObject TpcObject;
         private static GameObject _spec;
 
         private static GUIStyle _savedTimerStyle;
@@ -29,9 +31,9 @@ namespace CamMod
         private static GUIStyle _labelStyle;
         private static GUIStyle _textFieldStyle;
 
-        private static readonly List<float> SavedTimes = [];
+        private static readonly List<float> SavedTimes = new List<float>();
         private static VRRig[] _playerList;
-        private static readonly List<float> Speeds = [];
+        private static readonly List<float> Speeds =  new List<float>();
         
         private static string SelectedConfigPath => Path.Combine(ConfigFolder, _selectedConfigName + ".cfg");
         private static string[] _availableConfigs;
@@ -82,6 +84,8 @@ namespace CamMod
         private static bool _isNameTags;
         public static bool IsFpsTags;
         private static bool _isKillFeed;
+        private static bool _isSetup = false;
+        private static bool IsSpecNull => _spec == null;
         
         private static readonly Action DistanceAction = () => CloseMenu(ref _distanceDisplay);
         private static readonly Action ScoreAction = () => CloseMenu(ref _scoreDisplay);
@@ -100,8 +104,8 @@ namespace CamMod
         private static int _smoothingType = 1;
         private const int CornerRadius = 8;
         private const int MiniMapEspLayer = 25;
-        
-        public static Color _windowColor;
+
+        private static Color _windowColor;
         private static Color _buttonColor;
         private static Color _textFieldColor;
         private static Color _labelTextColor;
@@ -136,10 +140,8 @@ namespace CamMod
         private static float _defaultClipping = 0.01f;
         private static float _editClipPlane = 0.03f;
         private static float _targetClipping = _defaultClipping;
-        private static bool IsSpecNull => _spec == null;
-        private static float DesiredClipPlane;
-
-        private bool isSetup = false;
+        private static float _desiredClipPlane;
+        
 
         private static void Setup()
         {
@@ -147,20 +149,9 @@ namespace CamMod
             {
                 Speeds.Add(0);
             }
-            ToggleMic.SetupMicCanvas();
             EnsureDefaultConfig();
             LoadSettings();
             RpcManager.Init();
-        }
-        
-        void OnEnable()
-        {
-            HarmonyPatches.ApplyPatches();
-        }
-
-        void OnDisable()
-        {
-            HarmonyPatches.Unpatch();
         }
 
         private static void ChangeWeather(BetterDayNightManager.WeatherType weathertype)
@@ -174,7 +165,7 @@ namespace CamMod
         private static string _timeStr = Prefix;
         private static int _timeIndex;
 
-        public static void ChangeTime()
+        private static void ChangeTime()
         {
             string timeLabel = "Unknown";
 
@@ -215,123 +206,176 @@ namespace CamMod
 
         private void Update()
         {
-            if (!isSetup) {
+            if (!_isSetup) {
                 Setup();
-                isSetup = true;
+                _isSetup = true;
             }
-            
-            if (Keyboard.current.escapeKey.wasPressedThisFrame)
-            {
-                _menuUI = !_menuUI;
-                Debug.Log($"Menu Toggled: {_menuUI}");
-            }
-            
-            SpecBackground();
-            NoSmoothRigs();
-            GetVelocity();
-            MiniMap();
-            ToggleMic.SetupMicToggle();
-            ToggleKillFeed(_isKillFeed);
-            
-            if (_timer)
-            {
-                if (Keyboard.current.rightShiftKey.wasPressedThisFrame)
+
+            if (_isSetup) {
+                if (Keyboard.current.escapeKey.wasPressedThisFrame)
                 {
-                    _timing = !_timing;
+                    _menuUI = !_menuUI;
+                    Debug.Log($"Menu Toggled: {_menuUI}");
                 }
-            }
-
-            if (_timing)
-            {
-                _stopWatchTime += Time.deltaTime;
-            }
-
-            if (PhotonNetwork.InRoom)
-            {
-                GorillaTagManager gtm = FindObjectOfType<GorillaTagManager>();
-                if (gtm == null)
-                    return;
                 
-                if (gtm != null && _timing && !gtm.currentInfectedArray.Contains(-1))
+                SpecBackground();
+                NoSmoothRigs();
+                MiniMap();
+                SetupMicToggle();
+                SetupCamListener();
+                
+                if (_timer)
                 {
-                    _timing = false;
+                    if (Keyboard.current.rightShiftKey.wasPressedThisFrame)
+                    {
+                        _timing = !_timing;
+                    }
                 }
-            }
 
-
-            if (_scoreDisplay)
-            {
-                ScoreUpdater();
-            }
-
-            if (_isAutoCast)
-            {
-                AutoCast();
-            }
-
-            if (_movement)
-            {
-                Wasd();
-            }
-
-            _playerList ??= GorillaParent.instance.vrrigs.ToArray();
-
-            if (PhotonNetwork.InRoom)
-            {
-                if (_playerList != null && _playerList.Length > 0)
+                if (_timing)
                 {
-                    NumberSpectate();
+                    _stopWatchTime += Time.deltaTime;
                 }
-                else
+
+                if (PhotonNetwork.InRoom)
                 {
+                    GorillaTagManager gtm = GameObject.Find("GT Systems/GameModeSystem/Gorilla Tag Manager").GetComponent<GorillaTagManager>();
+                    if (gtm == null)
+                        return;
+                    
+                    if (gtm != null && _timing && !gtm.currentInfectedArray.Contains(-1))
+                    {
+                        _timing = false;
+                    }
+                }
+
+                if (_scoreDisplay)
+                {
+                    ScoreUpdater();
+                }
+
+                if (_isAutoCast)
+                {
+                    AutoCast();
+                }
+
+                if (_movement)
+                {
+                    Wasd();
+                }
+
+                if (PhotonNetwork.InRoom)
+                {
+                    _playerList = GorillaParent.instance.vrrigs
+                        .Where(r => r != null && !r.isOfflineVRRig && !r.isMyPlayer)
+                        .Take(9)
+                        .ToArray();
+
+                    if (_playerList.Length > 0)
+                    {
+                        NumberSpectate();
+                    }
+                    else
+                    {
+                        _spec = null;
+                        _specRig = null;
+                        _listener = false;
+                    }
+                }
+                
+                if (NameTagFont == null)
+                {
+                    NameTagFont = TMP_FontAsset.CreateFontAsset(CreateFont("CamMod.Assets.nametagfont.ttf"));
+                }
+                
+                if (_isNameTags || IsFpsTags) {
+                    NameTags.UpdateNameTags();
+                }
+                
+                if (Keyboard.current.digit0Key.wasPressedThisFrame) {
                     _spec = null;
                     _specRig = null;
+                    _listener = false;
                 }
             }
-            
-            if (NameTagFont == null)
-            {
-                NameTagFont = TMP_FontAsset.CreateFontAsset(CreateFont("CamMod.Assets.nametagfont.ttf"));
-            }
-            
-            if (_isNameTags || IsFpsTags) {
-                NameTags.UpdateNameTags();
-            }
-
-            if (Keyboard.current.digit0Key.wasPressedThisFrame) {
-                _spec = null;
-                _specRig = null;
-            }
-        }
-
-        private void ToggleKillFeed(bool enable)
-        {
-            if (enable)
-            {
-                TagEventManager.OnTagEvent += OnTagEventHandler;
-            }
-            else
-            {
-                TagEventManager.OnTagEvent -= OnTagEventHandler;
-            }
-        }
-        
-        private void OnTagEventHandler(Player tagger, Player tagged)
-        {
-            UnityEngine.Debug.Log($"{tagger.NickName} tagged {tagged.NickName}");
         }
         
         private static void GetVelocity() {
-            if (_velocity == null) {
-                if (_spec != null && _specRig != null) {
-                    _velocity = _specRig.LatestVelocity();
-                }
-                else {
-                    _velocity = GorillaTagger.Instance.offlineVRRig.LatestVelocity();
-                }
+            if (_spec != null && _specRig != null) {
+                _velocity = _specRig.LatestVelocity();
+            }
+            else {
+                _velocity = GorillaTagger.Instance.offlineVRRig.LatestVelocity();
+            }
+        }
+        
+        private static bool _isPttType = true;
+        
+        /*private static void SetupMicCanvas() {
+            GorillaComputer.instance.pttType = "ALL CHAT";
+            GameObject gameObject = new GameObject("Canvas");
+            Canvas canvas = gameObject.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            gameObject.AddComponent<CanvasScaler>();
+            gameObject.AddComponent<GraphicRaycaster>();
+            _text = gameObject.AddComponent<Text>();
+            _text.text = "Mic active";
+            _text.fontSize = 15;
+            _text.color = Color.green;
+            _text.alignment = TextAnchor.LowerRight;
+        }*/
+
+        private static Color _micColor = Color.green;
+
+        private static void SetupMicToggle()
+        {
+            if (Keyboard.current.tKey.wasPressedThisFrame)
+            {
+                OnVoiceToggle();
             }
         }
 
+        private static void SetupMicCanvas()
+        {
+            if (_micLabelStyle == null)
+            {
+                _micLabelStyle = new GUIStyle
+                {
+                    normal = { textColor = _micColor },
+                    fontStyle = FontStyle.Bold,
+                    fontSize = 15,
+                    alignment = TextAnchor.MiddleRight
+                };
+            }
+            else
+            {
+                _micLabelStyle.normal.textColor = _micColor;
+            }
+
+            GUI.Label(new Rect(Screen.width - 115f, Screen.height - 30f, 110f, 20f), _text, _micLabelStyle);
+        }
+
+        private static void OnVoiceToggle()
+        {
+            _isPttType = !_isPttType;
+            GorillaComputer.instance.pttType = _isPttType ? "ALL CHAT" : "PUSH TO TALK";
+
+            if (_isPttType)
+            {
+                _text = "Mic active";
+                _micColor = Color.green;
+            }
+            else
+            {
+                _text = "Mic muted";
+                _micColor = Color.red;
+            }
+
+            Debug.Log("Mic status: " + _text);
+        }
+
+        private static string _text;
+        
         private static void EnsureDefaultConfig()
         {
             if (!Directory.Exists(ConfigFolder))
@@ -606,6 +650,8 @@ namespace CamMod
             texture.Apply();
             return texture;
         }
+
+        private static GUIStyle _micLabelStyle = null;
         
         private void SetupGUIStyles()
         {
@@ -664,22 +710,6 @@ namespace CamMod
         private static Rect _timerForm = new Rect(Screen.width - 320f, Screen.height - 220f, 320f, 200f);
         private static Rect _settingsForm = new Rect(Screen.width - 280f, 330f, 260f, 390f);
         private static Rect _scoreForm = new Rect(10f, 440f, 300f, 220f);
-
-        private static void BeginMargin(ref Rect oldRect, Rect newRect)
-        {
-            oldRect.x = newRect.x;
-            oldRect.y = newRect.y;
-            oldRect.width = newRect.width;
-            oldRect.height = newRect.height;
-        }
-
-        private static void EndMargin(ref Rect rect)
-        {
-            rect.x += 10;
-            rect.y += 25;
-            rect.width -= 20;
-            rect.height -= 35;
-        }
         
         private void OnGUI()
         {
@@ -722,8 +752,6 @@ namespace CamMod
 
                 if (Plugin._spec == null)
                 {
-                    Plugin._listener = false;
-
                     if (GUI.Button(new Rect(1320f, 850f, 125f, 30f), Plugin._fpc ? "Third Person" : "First Person", _buttonStyle))
                         Plugin._fpc = !Plugin._fpc;
                 }
@@ -753,8 +781,6 @@ namespace CamMod
             } else {
                 _spec = null;
                 _specRig = null;
-                _listener = false;
-                _listener = false;
             }
             
             if (Plugin._scoreDisplay)
@@ -771,6 +797,8 @@ namespace CamMod
 
             if (Plugin._settingsDisplay)
                 Plugin.SettingsDisplay();
+            
+            SetupMicCanvas();
         }
 
         /*private static void SpectatorMenu()
@@ -886,9 +914,33 @@ namespace CamMod
             GUILayout.EndHorizontal();
         }*/
         
+        private static void DistanceText()
+        {
+            if (_dist != 0 && _distanceDisplay)
+            {
+                float width = 200f;
+                float height = 30f;
+                float x = (Screen.width - width) / 2f;
+                float y = Screen.height - 50f;
+
+                Rect rect = new Rect(x, y, width, height);
+
+                if (_cachedDarkTexture != null)
+                {
+                    Draw(rect, -10f);
+                }
+
+                GUI.Label(rect, $"Closest Lava: {_dist:F0}ft", new GUIStyle(_labelStyle)
+                {
+                    fontSize = 18,
+                    alignment = TextAnchor.MiddleCenter,
+                    normal = { textColor = Color.white }
+                });
+            }
+        }
+        
         public void DrawBoard()
         {
-            int startY = Screen.height - 35;
             int spacing = 35;
             int width = 320;
             int height = 30;
@@ -903,31 +955,40 @@ namespace CamMod
                 hover = { textColor = Color.white },
             };
 
-            var rigs = GorillaParent.instance.vrrigs;
+            var rigs = GorillaParent.instance.vrrigs
+                .Where(r => r != null && !r.isOfflineVRRig && !r.isMyPlayer)
+                .Take(9)
+                .ToList();
+
+            int playerCount = rigs.Count;
+            if (playerCount == 0) return;
+
+            float lastY = Screen.height - 35f;
+            float startY = lastY - (playerCount - 1) * spacing;
+
             foreach (VRRig r in rigs)
             {
-                if (r == null || r.isOfflineVRRig || r.isMyPlayer)
-                    continue;
-
-                int yPos = startY + ((number - 1) * spacing);
+                float yPos = startY + ((number - 1) * spacing);
 
                 Rect backgroundRect = new Rect(20, yPos, width, height);
                 Rect colorRect = new Rect(60, yPos, 25, height);
-                Rect numberRect = new Rect(25, yPos, width - 20, height);
-                Rect nameRect = new Rect(90, yPos, width - 90, height);
+                Rect numberRect = new Rect(25, yPos, 30, height);
+                Rect nameRect = new Rect(90, yPos, width - 100, height);
 
                 Draw(backgroundRect, -15);
                 DrawColorCard(colorRect, -15, r);
+
+                if (_specRig == r)
+                {
+                    DrawOutline(backgroundRect, -15); // green outline
+                }
 
                 GUI.Label(numberRect, number.ToString(), style);
                 GUI.Label(nameRect, r.playerNameVisible, style);
 
                 number++;
-                if (number > 9) break; // Limit to 9 players
             }
         }
-        
-        #region Cards
         
         private static Texture2D _cachedDarkTexture;
         private static Dictionary<Color, Texture2D> _cachedColorTextures = new Dictionary<Color, Texture2D>();
@@ -947,9 +1008,37 @@ namespace CamMod
 
             GUI.matrix = originalMatrix;
         }
+        
+        private static void DrawOutline(Rect rect, float skewOffset)
+        {
+            Matrix4x4 originalMatrix = GUI.matrix;
+
+            Matrix4x4 skewMatrix = Matrix4x4.identity;
+            skewMatrix.m00 = 1;
+            skewMatrix.m01 = skewOffset / rect.height;
+            skewMatrix.m11 = 1;
+
+            GUI.matrix = Matrix4x4.TRS(new Vector3(rect.x, rect.y, 0), Quaternion.identity, Vector3.one) * skewMatrix;
+
+            Color originalColor = GUI.color;
+            GUI.color = Color.green;
+
+            Texture2D tex = Texture2D.whiteTexture;
+            float w = rect.width;
+            float h = rect.height;
+
+            GUI.DrawTexture(new Rect(0, 0, w, 1), tex);         // Top
+            GUI.DrawTexture(new Rect(0, h - 1, w, 1), tex);     // Bottom
+            GUI.DrawTexture(new Rect(0, 0, 1, h), tex);         // Left
+            GUI.DrawTexture(new Rect(w - 1, 0, 1, h), tex);     // Right
+
+            GUI.color = originalColor;
+            GUI.matrix = originalMatrix;
+        }
 
         public static Color cardColor;
-        public static void DrawColorCard(Rect rect, float skewOffset, VRRig targetRig)
+
+        private static void DrawColorCard(Rect rect, float skewOffset, VRRig targetRig)
         {
             if (targetRig.IsNull()) return;
 
@@ -979,7 +1068,7 @@ namespace CamMod
             GUI.matrix = originalMatrix;
         }
 
-        public static void ClearTextureCache()
+        private static void ClearTextureCache()
         {
             if (_cachedDarkTexture != null)
             {
@@ -993,7 +1082,6 @@ namespace CamMod
             }
             _cachedColorTextures.Clear();
         }
-        #endregion
         
         private static void CasterModsMenu()
         {
@@ -1005,9 +1093,9 @@ namespace CamMod
             ColorButton("WASD", _movement ? Color.green : Color.white, Toggle);
             GUILayout.Space(8f);
             
-            ColorButton("Kill Feed", _isKillFeed ? Color.green : Color.white, Toggle2);
-            GUILayout.Space(8f);
-    
+            /*ColorButton("Kill Feed", _isKillFeed ? Color.green : Color.white, Toggle2);
+            GUILayout.Space(8f);*/
+            
             GUILayout.Label("Room Code", _labelStyle);
             _roomCode = GUILayout.TextField(_roomCode.ToUpper(), 10, _textFieldStyle);
             GUILayout.Space(4f);
@@ -1017,9 +1105,9 @@ namespace CamMod
             {
                 if (PhotonNetwork.InRoom)
                 {
-                    PhotonNetwork.Disconnect();   
                     _spec = null;
                     _specRig = null;
+                    PhotonNetwork.Disconnect();   
                 }
                 else
                 {
@@ -1375,15 +1463,6 @@ namespace CamMod
 
             GUILayout.EndArea();
         }
-       
-        private static void DistanceText()
-        {
-            if (_dist != 0 && _distanceDisplay && _spec != null)
-            {
-                GUI.Label(new Rect((float)Screen.width / 2 - 100f, Screen.height - 50f, 200, 50),
-                    $"Closest Lava: {_dist.ToString("F0")}ft", new GUIStyle(_labelStyle) { fontSize = 18 });
-            }
-        }
         
         private static void ColorButton(string text, Color color, Action action)
         {
@@ -1440,14 +1519,12 @@ namespace CamMod
 
             GameObject existingShoulderCam = GameObject.Find("Shoulder Camera");
 
-            if (_tpcObject == null)
+            if (TpcObject == null)
             {
-                _tpcObject = new GameObject("TPCamera");
-                Tpc = _tpcObject.AddComponent<Camera>();
-
-                SetupCamListener();
+                TpcObject = new GameObject("TPCamera");
+                Tpc = TpcObject.AddComponent<Camera>();
                 
-                _editClipPlane = Mathf.Lerp(_editClipPlane, DesiredClipPlane, 0.075f);
+                _editClipPlane = Mathf.Lerp(_editClipPlane, _desiredClipPlane, 0.075f);
                 Tpc.nearClipPlane = _editClipPlane;
 
                 Tpc.cameraType = CameraType.Preview;
@@ -1470,31 +1547,25 @@ namespace CamMod
             }
         }
 
-        private static void SetupCamListener()
+        private void SetupCamListener()
         {
-            if (_tpcObject.GetComponent<AudioListener>() == null)
+            if (TpcObject.GetComponent<AudioListener>() == null)
             {
-                _camListener = _tpcObject.AddComponent<AudioListener>();
+                _camListener = TpcObject.AddComponent<AudioListener>();
             }
             _camListener.enabled = _listener;
+            GTPlayer.Instance.GetComponentInChildren<AudioListener>().enabled = !_listener;
         }
         
-        private static void NoSmoothRigs()
+        private void NoSmoothRigs()
         {
             var localRig = GorillaTagger.Instance.offlineVRRig;
 
-            foreach (VRRig rig in GorillaParent.instance.vrrigs)
-            {
+            foreach (VRRig rig in GorillaParent.instance.vrrigs) {
                 if (rig == null)
-                    continue;
+                    return;
 
-                if (rig != localRig)
-                {
-                    rig.lerpValueBody = _rigLerp;
-                    rig.lerpValueFingers = _rigLerp;
-                }
-                
-                else if (_spec == null && _specRig == null)
+                if (rig != localRig && !rig.isMyPlayer)
                 {
                     rig.lerpValueBody = _rigLerp;
                     rig.lerpValueFingers = _rigLerp;
@@ -1628,15 +1699,14 @@ namespace CamMod
         
         private static void SpecBackground()
         {
-            
-            if (_tpcObject == null || _minimapCamera == null || GTPlayer.Instance == null || GTPlayer.Instance.headCollider == null)
+            if (TpcObject == null || _minimapCamera == null || GTPlayer.Instance == null || GTPlayer.Instance.headCollider == null)
                 return;
             
-            DesiredClipPlane = IsSpecNull ? _defaultClipping : _targetClipping;
+            _desiredClipPlane = IsSpecNull ? _defaultClipping : _targetClipping;
             if (_spec != null)
             {
-                _targetClipping = _defaultClipping * _specRig.transform.localScale.y;
                 _listener = true;
+                _targetClipping = _defaultClipping * _specRig.transform.localScale.y;
                 GetDistToFected(ref _dist);
 
                 Vector3 targetPos;
@@ -1650,20 +1720,20 @@ namespace CamMod
                     targetPos = _spec.transform.TransformPoint(_specOffset);
                 }
 
-                if ((targetPos - _tpcObject.transform.position).sqrMagnitude > 10f)
+                if ((targetPos - TpcObject.transform.position).sqrMagnitude > 10f)
                 {
-                    _tpcObject.transform.position = Vector3.Lerp(_tpcObject.transform.position, targetPos, 0.3f);
+                    TpcObject.transform.position = Vector3.Lerp(TpcObject.transform.position, targetPos, 0.3f);
                 }
                 else
                 {
-                    _tpcObject.transform.position = SmoothPosition(_tpcObject.transform.position, targetPos);
+                    TpcObject.transform.position = SmoothPosition(TpcObject.transform.position, targetPos);
                 }
 
-                var lookRot = Quaternion.LookRotation((_spec.transform.position - _tpcObject.transform.position).normalized);
+                var lookRot = Quaternion.LookRotation((_spec.transform.position - TpcObject.transform.position).normalized);
 
 
-                _tpcObject.transform.rotation = SmoothRotation(_tpcObject.transform.rotation, lookRot);
-                _tpcObject.transform.parent = null;
+                TpcObject.transform.rotation = SmoothRotation(TpcObject.transform.rotation, lookRot);
+                TpcObject.transform.parent = null;
 
                 _minimapCamera.transform.parent = _spec.transform.parent;
                 _minimapCamera.transform.position = _spec.transform.position + Vector3.up * 15f;
@@ -1671,12 +1741,11 @@ namespace CamMod
             else
             {
                 _targetClipping = _defaultClipping * GorillaTagger.Instance.offlineVRRig.transform.localScale.y;
-                _listener = false;
                 if (_spectating)
                 {
-                    _tpcObject.transform.position = GTPlayer.Instance.headCollider.transform.position +
+                    TpcObject.transform.position = GTPlayer.Instance.headCollider.transform.position +
                                                     GTPlayer.Instance.headCollider.transform.forward;
-                    _tpcObject.transform.parent = GTPlayer.Instance.headCollider.transform;
+                    TpcObject.transform.parent = GTPlayer.Instance.headCollider.transform;
                     _spectating = false;
                 }
                 else
@@ -1696,33 +1765,37 @@ namespace CamMod
                         {
                             testTarget = GTPlayer.Instance.bodyCollider.transform.TransformPoint(_specOffset);
                         }
-                        _tpcObject.transform.position = SmoothPosition(_tpcObject.transform.position, testTarget);
+                        TpcObject.transform.position = SmoothPosition(TpcObject.transform.position, testTarget);
 
-                        var lookRotation= Quaternion.LookRotation(GTPlayer.Instance.headCollider.transform.position - _tpcObject.transform.position);
-                        _tpcObject.transform.rotation = SmoothRotation(_tpcObject.transform.rotation, lookRotation);
-                        _tpcObject.transform.parent = null;
+                        var lookRotation= Quaternion.LookRotation(GTPlayer.Instance.headCollider.transform.position - TpcObject.transform.position);
+                        TpcObject.transform.rotation = SmoothRotation(TpcObject.transform.rotation, lookRotation);
+                        TpcObject.transform.parent = null;
                     }
                     else
                     {
                         Transform head = GTPlayer.Instance.headCollider.transform;
-                        _tpcObject.transform.position = head.position;
-                        _tpcObject.transform.parent = head;
-                        _tpcObject.transform.rotation = SmoothRotation(_tpcObject.transform.rotation, head.rotation);
+                        TpcObject.transform.position = head.position;
+                        TpcObject.transform.parent = head;
+                        TpcObject.transform.rotation = SmoothRotation(TpcObject.transform.rotation, head.rotation);
                     }
                 }
             }
 
-            var tpc = _tpcObject.GetComponent<Camera>();
+            var tpc = TpcObject.GetComponent<Camera>();
             if (tpc is not null)
             {
                 tpc.fieldOfView = _fov;
             }
+            GetVelocity();
         }
 
         
         private static void NumberSpectate()
         {
-            bool[] keys = 
+            if (_playerList == null || _playerList.Length == 0)
+                return;
+            
+            bool[] keys =
             {
                 Keyboard.current.digit1Key.wasPressedThisFrame,
                 Keyboard.current.digit2Key.wasPressedThisFrame,
@@ -1734,14 +1807,14 @@ namespace CamMod
                 Keyboard.current.digit8Key.wasPressedThisFrame,
                 Keyboard.current.digit9Key.wasPressedThisFrame
             };
-            bool wasPressedThisFrame = Keyboard.current.digit0Key.wasPressedThisFrame;
-            for (int i = 0; i < keys.Length; i++) {
-                if (keys[i] &&  i < _playerList.Length) {
-                    if (_playerList != null)
-                    {
-                        _spec = _playerList[i].gameObject;
-                        _specRig = _playerList[i];   
-                    }
+
+            for (int i = 0; i < keys.Length; i++)
+            {
+                if (keys[i] && i < _playerList.Length)
+                {
+                    _spec = _playerList[i].gameObject;
+                    _specRig = _playerList[i];
+                    _listener = true;
                     break;
                 }
             }
@@ -1790,16 +1863,15 @@ namespace CamMod
         private static void Wasd()
         {
 	        Transform transform = GTPlayer.Instance.headCollider.transform;
-	        bool[] array =
-            [
-                Keyboard.current.wKey.isPressed,
-		        Keyboard.current.aKey.isPressed,
-		        Keyboard.current.sKey.isPressed,
-		        Keyboard.current.dKey.isPressed,
-		        Keyboard.current.spaceKey.isPressed,
-		        Keyboard.current.leftShiftKey.isPressed,
-		        Keyboard.current.leftCtrlKey.isPressed
-            ];
+	        bool[] array = new [] {
+                    Keyboard.current.wKey.isPressed,
+                    Keyboard.current.aKey.isPressed,
+                    Keyboard.current.sKey.isPressed,
+                    Keyboard.current.dKey.isPressed,
+                    Keyboard.current.spaceKey.isPressed,
+                    Keyboard.current.leftShiftKey.isPressed,
+                    Keyboard.current.leftCtrlKey.isPressed
+            };
 	        _maxSpeed = (array[6] ? 10f : 5f);
 	        for (var i = 0; i < 6; i++)
 	        {
