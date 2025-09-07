@@ -81,9 +81,9 @@ namespace CamMod
 
             tmp.text = rig.playerNameVisible;
 
-            if (Plugin.TpcObject != null && Plugin.TpcObject.transform != null)
-            {
-                Quaternion.LookRotation(Plugin.Tpc.transform.forward);
+            if (Plugin.TpcObject != null && Plugin.TpcObject.transform != null) {
+                GameObject nigger = nameTags[rig];
+                nigger.transform.rotation = Quaternion.LookRotation(Plugin.Tpc.transform.forward);
             }
         }
 
@@ -117,7 +117,8 @@ namespace CamMod
 
             if (Plugin.TpcObject != null && Plugin.TpcObject.transform != null)
             {
-                Quaternion.LookRotation(Plugin.Tpc.transform.forward);
+                GameObject nigger = fpsTags[rig];
+                nigger.transform.rotation = Quaternion.LookRotation(Plugin.Tpc.transform.forward);
             }
         }
 

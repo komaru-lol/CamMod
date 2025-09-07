@@ -6,16 +6,17 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Linq;
 using System;
+using System.Collections;
 using GorillaNetworking;
 using System.IO;
 using System.Reflection;
-using CamMod.Patching;
 using GorillaExtensions;
-using HarmonyLib;
 using Photon.Realtime;
 using TMPro;
-using UnityEngine.UI;
+using Unity.Cinemachine;
+using UnityEngine.XR;
 using Debug = UnityEngine.Debug;
+using UnityEngine.Rendering.Universal;
 
 namespace CamMod
 {
@@ -30,6 +31,8 @@ namespace CamMod
         private static GUIStyle _buttonStyle;
         private static GUIStyle _labelStyle;
         private static GUIStyle _textFieldStyle;
+        private static GUIStyle _scoreStyle;
+        
 
         private static readonly List<float> SavedTimes = new List<float>();
         private static VRRig[] _playerList;
@@ -75,7 +78,7 @@ namespace CamMod
         private static bool _menuUI;
         private static bool _spectatorList;
         private static bool _casterMods;
-        private static bool _movement;
+        public static bool Movement = false;
         private static bool _fpc = true;
         private static bool _spectating;
         private static bool _deletedCamera;
@@ -84,7 +87,8 @@ namespace CamMod
         private static bool _isNameTags;
         public static bool IsFpsTags;
         private static bool _isKillFeed;
-        private static bool _isSetup = false;
+        public static bool IsSetup = false;
+        public static bool Pointer = false;
         private static bool IsSpecNull => _spec == null;
         
         private static readonly Action DistanceAction = () => CloseMenu(ref _distanceDisplay);
@@ -93,22 +97,22 @@ namespace CamMod
         private static readonly Action SpectateAction = () => CloseMenu(ref _spectatorList);
         private static readonly Action CastingAction = () => CloseMenu(ref _casterMods);
         private static readonly Action SettingsAction = () => CloseMenu(ref _settingsDisplay);
-        private static readonly Action Toggle = () => SwitchBool(ref _movement);
+        private static readonly Action Toggle = () => SwitchBool(ref Movement);
         private static readonly Action Toggle2 = () => SwitchBool(ref _isKillFeed);
         private static readonly Action MinimapAction = () => CloseMenu(ref _minimap);
 
-        private static int _teamScore1;
-        private static int _teamScore2;
+        private static int _teamScore1 = 0;
+        private static int _teamScore2 = 0;
         private static int _selectedConfigIndex;
         private static int _weatherTypeIndex;
         private static int _smoothingType = 1;
         private const int CornerRadius = 8;
         private const int MiniMapEspLayer = 25;
 
-        private static Color _windowColor;
+        public static Color WindowColor;
         private static Color _buttonColor;
         private static Color _textFieldColor;
-        private static Color _labelTextColor;
+        public static Color LabelTextColor;
         private static Color _sliderColor;
         private static Color _sliderThumbColor;
         
@@ -206,12 +210,12 @@ namespace CamMod
 
         private void Update()
         {
-            if (!_isSetup) {
+            if (!IsSetup) {
                 Setup();
-                _isSetup = true;
+                IsSetup = true;
             }
 
-            if (_isSetup) {
+            if (IsSetup) {
                 if (Keyboard.current.escapeKey.wasPressedThisFrame)
                 {
                     _menuUI = !_menuUI;
@@ -223,6 +227,7 @@ namespace CamMod
                 MiniMap();
                 SetupMicToggle();
                 SetupCamListener();
+                HandlePointer();
                 
                 if (_timer)
                 {
@@ -236,15 +241,19 @@ namespace CamMod
                 {
                     _stopWatchTime += Time.deltaTime;
                 }
+                
+                if (PhotonNetwork.InRoom) {
+                    bool allInfected = true;
+                    foreach (VRRig rig in GorillaParent.instance.vrrigs) {
+                        if (rig != null) {
+                            if (!rig.mainSkin.material.name.Contains("fected")) {
+                                allInfected = false;
+                                break;
+                            }
+                        }
+                    }
 
-                if (PhotonNetwork.InRoom)
-                {
-                    GorillaTagManager gtm = GameObject.Find("GT Systems/GameModeSystem/Gorilla Tag Manager").GetComponent<GorillaTagManager>();
-                    if (gtm == null)
-                        return;
-                    
-                    if (gtm != null && _timing && !gtm.currentInfectedArray.Contains(-1))
-                    {
+                    if (allInfected && _timing) {
                         _timing = false;
                     }
                 }
@@ -259,9 +268,29 @@ namespace CamMod
                     AutoCast();
                 }
 
-                if (_movement)
+                if (Movement)
                 {
                     Wasd();
+                    if (!initialized)
+                    {
+                        InitializePointer();
+                        initialized = true;
+                    }
+
+                    if (!XRSettings.isDeviceActive)
+                    {
+                        HandleMouseInput();
+                    }
+                    else
+                    {
+                        HandleVRInput();
+                    }
+                }
+                else {
+                    if (initialized) {
+                        DestroyPointer();
+                        initialized = false;
+                    }
                 }
 
                 if (PhotonNetwork.InRoom)
@@ -300,6 +329,104 @@ namespace CamMod
             }
         }
         
+        private bool initialized = false;
+        private GameObject pointer;
+        private GameObject triggerColliderObj;
+        private Vector3 pointerPosition;
+        
+        private void InitializePointer()
+        {
+            triggerColliderObj = GorillaTagger.Instance.rightHandTriggerCollider;
+            pointer = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+
+            pointer.transform.localScale = triggerColliderObj.transform.localScale / 15f;
+            pointer.layer = LayerMask.NameToLayer("TransparentFX");
+
+            Destroy(pointer.GetComponent<SphereCollider>());
+        }
+
+        private void HandleMouseInput()
+        {
+            pointer.GetComponent<Renderer>().enabled = false;
+
+            Vector2 mousePos = Mouse.current.position.ReadValue();
+            Ray ray = TpcObject.GetComponent<Camera>().ScreenPointToRay(mousePos);
+
+            if (Physics.Raycast(ray, out RaycastHit hit, 500f, GTPlayer.Instance.locomotionEnabledLayers))
+            {
+                pointerPosition = hit.point;
+                pointer.transform.position = pointerPosition;
+            }
+
+            if (Mouse.current.leftButton.isPressed)
+            {
+                DisableFollow();
+                triggerColliderObj.transform.position = pointerPosition;
+                pointer.GetComponent<Renderer>().material.color = Color.green;
+            }
+            else
+            {
+                EnableFollow();
+            }
+        }
+
+        private void HandleVRInput()
+        {
+            if (GorillaTagger.Instance.offlineVRRig.rightMiddle.gripValue <= 0.2f)
+            {
+                DestroyPointer();
+                return;
+            }
+
+            if (Physics.Raycast(GTPlayer.Instance.rightControllerTransform.position,
+                                GTPlayer.Instance.rightControllerTransform.forward,
+                                out RaycastHit hit, 500f, GTPlayer.Instance.locomotionEnabledLayers))
+            {
+                pointerPosition = hit.point;
+                pointer.transform.position = pointerPosition;
+            }
+
+            if (GorillaTagger.Instance.offlineVRRig.rightIndex.triggerValue > 0.3f)
+            {
+                DisableFollow();
+                triggerColliderObj.transform.position = pointerPosition;
+                pointer.GetComponent<Renderer>().material.color = Color.green;
+            }
+            else
+            {
+                EnableFollow();
+            }
+        }
+
+        private void DisableFollow()
+        {
+            var follow = triggerColliderObj.GetComponent<TransformFollow>();
+            if (follow.enabled)
+                follow.enabled = false;
+        }
+
+        private void EnableFollow()
+        {
+            var follow = triggerColliderObj.GetComponent<TransformFollow>();
+            if (!follow.enabled)
+            {
+                pointer.GetComponent<Renderer>().material.color = Color.white;
+                follow.enabled = true;
+            }
+        }
+
+        private void DestroyPointer()
+        {
+            if (pointer != null)
+            {
+                pointer.GetComponent<Renderer>().material.color = Color.white;
+                triggerColliderObj.GetComponent<TransformFollow>().enabled = true;
+
+                Destroy(pointer);
+                pointer = null;
+            }
+        }
+        
         private static void GetVelocity() {
             if (_spec != null && _specRig != null) {
                 _velocity = _specRig.LatestVelocity();
@@ -310,21 +437,36 @@ namespace CamMod
         }
         
         private static bool _isPttType = true;
-        
-        /*private static void SetupMicCanvas() {
-            GorillaComputer.instance.pttType = "ALL CHAT";
-            GameObject gameObject = new GameObject("Canvas");
-            Canvas canvas = gameObject.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            gameObject.AddComponent<CanvasScaler>();
-            gameObject.AddComponent<GraphicRaycaster>();
-            _text = gameObject.AddComponent<Text>();
-            _text.text = "Mic active";
-            _text.fontSize = 15;
-            _text.color = Color.green;
-            _text.alignment = TextAnchor.LowerRight;
-        }*/
 
+        private static void HandlePointer() {
+            if (!(UnityInput.Current.GetMouseButton(1) || UnityInput.Current.GetMouseButton(0)) ||
+                !Plugin.Pointer || !Plugin.Movement)
+                return;
+
+            var ray = Camera.main.ScreenPointToRay(UnityInput.Current.mousePosition);
+            if (!Physics.Raycast(ray, out var hit)) return;
+
+            var lineObj = new GameObject("Line");
+            var lr = lineObj.AddComponent<LineRenderer>();
+            lr.material.shader = Shader.Find("GUI/Text Shader");
+            float t = Mathf.PingPong(Time.time, 1f);
+            lr.startColor = Color.Lerp(Plugin.WindowColor, Plugin.LabelTextColor, t);
+            lr.endColor = UnityInput.Current.GetMouseButton(0) ? Color.Lerp(Plugin.LabelTextColor, Plugin.WindowColor, t) : Color.white;
+            lr.startWidth = lr.endWidth = 0.025f;
+            lr.positionCount = 2;
+            lr.useWorldSpace = true;
+            lr.SetPosition(0, Camera.main.transform.position + Vector3.down * 0.3f);
+            lr.SetPosition(1, hit.point);
+
+            Destroy(lineObj, Time.deltaTime);
+
+            if (UnityInput.Current.GetMouseButton(0)) {
+                var normalized = (GTPlayer.Instance.rightControllerTransform.position - hit.point).normalized;
+                GTPlayer.Instance.rightControllerTransform.position = hit.point + normalized * 0.1f;
+                GTPlayer.Instance.rightControllerTransform.LookAt(hit.point);
+            }
+        }
+        
         private static Color _micColor = Color.green;
 
         private static void SetupMicToggle()
@@ -343,7 +485,7 @@ namespace CamMod
                 {
                     normal = { textColor = _micColor },
                     fontStyle = FontStyle.Bold,
-                    fontSize = 15,
+                    fontSize = 14,
                     alignment = TextAnchor.MiddleRight
                 };
             }
@@ -442,7 +584,7 @@ namespace CamMod
                     case "Tracking": _isHeadTracking = value == "1"; break;
                     case "NameTags": _isNameTags = value == "1"; break;
                     case "FpsTags": IsFpsTags = value == "1"; break;
-                    case "WASD": _movement = value == "1"; break;
+                    case "WASD": Movement = value == "1"; break;
                     case "Theme":
                         if (Enum.TryParse(value, out Theme parsedTheme))
                             _currentTheme = parsedTheme;
@@ -472,7 +614,7 @@ namespace CamMod
                 $"Tracking={(_isHeadTracking ? "1" : "0")}",
                 $"NameTags={(_isNameTags ? "1" : "0")}",
                 $"FpsTags={(IsFpsTags ? "1" : "0")}",
-                $"WASD={(_movement ? "1" : "0")}",
+                $"WASD={(Movement ? "1" : "0")}",
                 $"Theme={_currentTheme}"
             };
 
@@ -521,66 +663,66 @@ namespace CamMod
             switch (_currentTheme)
             {
                 case Theme.Dark:
-                    _windowColor = new Color(0.1f, 0.1f, 0.1f, 0.7f);
+                    WindowColor = new Color(0.1f, 0.1f, 0.1f, 0.7f);
                     _buttonColor = new Color(0.15f, 0.15f, 0.15f);
                     _textFieldColor = new Color(0.18f, 0.18f, 0.18f);
                     _sliderColor = new Color(0.2f, 0.2f, 0.2f);
                     _sliderThumbColor = new Color(0.3f, 0.3f, 0.3f);
-                    _labelTextColor = Color.white;
+                    LabelTextColor = Color.white;
                     break;
 
                 case Theme.VeryDark:
-                    _windowColor = new Color(0.05f, 0.05f, 0.05f, 0.7f);
+                    WindowColor = new Color(0.05f, 0.05f, 0.05f, 0.7f);
                     _buttonColor = new Color(0.1f, 0.1f, 0.1f);
                     _textFieldColor = new Color(0.12f, 0.12f, 0.12f);
                     _sliderColor = new Color(0.15f, 0.15f, 0.15f);
                     _sliderThumbColor = new Color(0.2f, 0.2f, 0.2f);
-                    _labelTextColor = Color.white;
+                    LabelTextColor = Color.white;
                     break;
 
                 case Theme.Space:
-                    _windowColor = new Color(0.0f, 0.0f, 0.1f, 0.7f);
+                    WindowColor = new Color(0.0f, 0.0f, 0.1f, 0.7f);
                     _buttonColor = new Color(0.0f, 0.0f, 0.2f);
                     _textFieldColor = new Color(0.05f, 0.05f, 0.25f);
                     _sliderColor = new Color(0.08f, 0.08f, 0.3f);
                     _sliderThumbColor = new Color(0.2f, 0.4f, 1f);
-                    _labelTextColor = new Color(0.6f, 0.8f, 1f);
+                    LabelTextColor = new Color(0.6f, 0.8f, 1f);
                     break;
 
                 case Theme.Purple:
-                    _windowColor = new Color(0.12f, 0.0f, 0.2f, 0.7f);
+                    WindowColor = new Color(0.12f, 0.0f, 0.2f, 0.7f);
                     _buttonColor = new Color(0.2f, 0.0f, 0.3f);
                     _textFieldColor = new Color(0.25f, 0.0f, 0.4f);
                     _sliderColor = new Color(0.3f, 0.0f, 0.5f);
                     _sliderThumbColor = new Color(0.6f, 0.4f, 1f);
-                    _labelTextColor = new Color(0.9f, 0.8f, 1f);
+                    LabelTextColor = new Color(0.9f, 0.8f, 1f);
                     break;
                 
                 case Theme.Solarized:
-                    _windowColor = new Color(0.0f, 0.17f, 0.21f, 0.7f);
+                    WindowColor = new Color(0.0f, 0.17f, 0.21f, 0.7f);
                     _buttonColor = new Color(0.01f, 0.26f, 0.31f);
                     _textFieldColor = new Color(0.02f, 0.36f, 0.41f);
                     _sliderColor = new Color(0.0f, 0.5f, 0.55f);
                     _sliderThumbColor = new Color(0.13f, 0.58f, 0.60f);
-                    _labelTextColor = new Color(0.92f, 0.91f, 0.85f);
+                    LabelTextColor = new Color(0.92f, 0.91f, 0.85f);
                     break;
 
                 case Theme.Forest:
-                    _windowColor = new Color(0.1f, 0.15f, 0.1f, 0.7f);
+                    WindowColor = new Color(0.1f, 0.15f, 0.1f, 0.7f);
                     _buttonColor = new Color(0.15f, 0.2f, 0.15f);
                     _textFieldColor = new Color(0.2f, 0.25f, 0.2f);
                     _sliderColor = new Color(0.2f, 0.3f, 0.2f);
                     _sliderThumbColor = new Color(0.4f, 0.6f, 0.4f);
-                    _labelTextColor = new Color(0.8f, 1f, 0.8f);
+                    LabelTextColor = new Color(0.8f, 1f, 0.8f);
                     break;
 
                 default:
-                    _windowColor = new Color(0.05f, 0.05f, 0.05f, 0.7f);
+                    WindowColor = new Color(0.05f, 0.05f, 0.05f, 0.7f);
                     _buttonColor = new Color(0.1f, 0.1f, 0.1f);
                     _textFieldColor = new Color(0.1f, 0.1f, 0.1f);
                     _sliderColor = new Color(0.1f, 0.1f, 0.1f);
                     _sliderThumbColor = new Color(0.3f, 0.3f, 0.3f);
-                    _labelTextColor = Color.white;
+                    LabelTextColor = Color.white;
                     break;
             }
 
@@ -607,7 +749,7 @@ namespace CamMod
             }
 
             _cachedDarkTexture = new Texture2D(1, 1);
-            _cachedDarkTexture.SetPixel(0, 0, _windowColor);
+            _cachedDarkTexture.SetPixel(0, 0, WindowColor);
             _cachedDarkTexture.Apply();
         }
         
@@ -657,10 +799,10 @@ namespace CamMod
         {
             if (_windowStyle == null)
             {
-                var bg = MakeRoundedTexture(12, _windowColor);
+                var bg = MakeRoundedTexture(12, WindowColor);
                 _windowStyle = new GUIStyle(GUI.skin.window)
                 {
-                    normal = { background = bg, textColor = _labelTextColor },
+                    normal = { background = bg, textColor = LabelTextColor },
                     padding = new RectOffset(0, 0, 30, 0),
                     fontSize = 15,
                     fontStyle = FontStyle.Bold,
@@ -672,10 +814,10 @@ namespace CamMod
             {
                 _buttonStyle = new GUIStyle(GUI.skin.button)
                 {
-                    normal = { background = _buttonNormalTex, textColor = _labelTextColor },
-                    hover = { background = _buttonHoverTex, textColor = _labelTextColor },
-                    active = { background = _buttonActiveTex, textColor = _labelTextColor },
-                    focused = { background = _buttonFocusedTex, textColor = _labelTextColor },
+                    normal = { background = _buttonNormalTex, textColor = LabelTextColor },
+                    hover = { background = _buttonHoverTex, textColor = LabelTextColor },
+                    active = { background = _buttonActiveTex, textColor = LabelTextColor },
+                    focused = { background = _buttonFocusedTex, textColor = LabelTextColor },
                     fontStyle = FontStyle.Bold,
                     border = new RectOffset(CornerRadius, CornerRadius, CornerRadius, CornerRadius)
                 };
@@ -685,7 +827,16 @@ namespace CamMod
             {
                 _labelStyle = new GUIStyle(GUI.skin.label)
                 {
-                    normal = { textColor = _labelTextColor },
+                    normal = { textColor = LabelTextColor },
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleCenter,
+                };
+            }
+
+            if (_scoreStyle == null) {
+                _scoreStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 24,
                     fontStyle = FontStyle.Bold,
                     alignment = TextAnchor.MiddleCenter,
                 };
@@ -695,10 +846,10 @@ namespace CamMod
             {
                 _textFieldStyle = new GUIStyle(GUI.skin.textField)
                 {
-                    normal = { background = _textFieldNormalTex, textColor = _labelTextColor },
-                    hover = { background = _textFieldHoverTex, textColor = _labelTextColor },
-                    active = { background = _textFieldActiveTex, textColor = _labelTextColor },
-                    focused = { background = _textFieldFocusedTex, textColor = _labelTextColor },
+                    normal = { background = _textFieldNormalTex, textColor = LabelTextColor },
+                    hover = { background = _textFieldHoverTex, textColor = LabelTextColor },
+                    active = { background = _textFieldActiveTex, textColor = LabelTextColor },
+                    focused = { background = _textFieldFocusedTex, textColor = LabelTextColor },
                     alignment = TextAnchor.MiddleCenter
                 };
             }
@@ -707,7 +858,7 @@ namespace CamMod
         private static Rect _r = new Rect(Screen.width - 270f, 10f, 260f, 340f);
         private static Rect _menuForm = new Rect((Screen.width - 900f) / 2f, (Screen.height - 700f) / 2f, 900f, 700f);
         private static Rect _casterModForm = new Rect(10f, 10f, 250f, 360f);
-        private static Rect _timerForm = new Rect(Screen.width - 320f, Screen.height - 220f, 320f, 200f);
+        private static Rect _timerForm = new Rect(Screen.width - 320f, Screen.height - 230f, 320f, 200f);
         private static Rect _settingsForm = new Rect(Screen.width - 280f, 330f, 260f, 390f);
         private static Rect _scoreForm = new Rect(10f, 440f, 300f, 220f);
         
@@ -1090,7 +1241,7 @@ namespace CamMod
             Rect paddedRect = new Rect(_casterModForm.x + 10f, _casterModForm.y + 40f, _casterModForm.width - 20f, _casterModForm.height - 60f);
             GUILayout.BeginArea(paddedRect);
     
-            ColorButton("WASD", _movement ? Color.green : Color.white, Toggle);
+            ColorButton("WASD", Movement ? Color.green : Color.white, Toggle);
             GUILayout.Space(8f);
             
             /*ColorButton("Kill Feed", _isKillFeed ? Color.green : Color.white, Toggle2);
@@ -1158,10 +1309,15 @@ namespace CamMod
         private static void ScoreDisplay()
         {
             _scoreForm = new Rect(10, 440, 300, 240);
-            
+
             GUI.Box(_scoreForm, GUIContent.none, _windowStyle);
 
-            Rect paddedRect = new Rect(_scoreForm.x + 10f, _scoreForm.y + 10f, _scoreForm.width - 20f, _scoreForm.height - 20f);
+            Rect paddedRect = new Rect(
+                _scoreForm.x + 10f,
+                _scoreForm.y + 10f,
+                _scoreForm.width - 20f,
+                _scoreForm.height - 20f
+            );
 
             GUILayout.BeginArea(paddedRect);
 
@@ -1188,39 +1344,36 @@ namespace CamMod
 
             GUILayout.BeginHorizontal();
 
-            GUILayout.BeginVertical(GUILayout.Width(paddedRect.width / 2), GUILayout.Height(100));
+            //
+            // TEAM 1
+            //
+            GUILayout.BeginVertical(GUILayout.Width(paddedRect.width / 2), GUILayout.Height(120));
 
+            // Team 1 name
             GUILayout.Label(_team1Name, new GUIStyle(_labelStyle)
             {
-                fontSize = 36,
+                fontSize = 28,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
             });
 
             GUILayout.Space(5);
 
+            // Editing Team 1
             if (_isEditingTeam1)
             {
-                GUILayout.BeginVertical();
                 GUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
-                _tempTeam1Name = GUILayout.TextField(_tempTeam1Name, _textFieldStyle,GUILayout.Width(80));
-                GUILayout.FlexibleSpace();
-                GUILayout.EndHorizontal();
-
-                GUILayout.BeginHorizontal();
-                GUILayout.FlexibleSpace();
+                _tempTeam1Name = GUILayout.TextField(_tempTeam1Name, _textFieldStyle, GUILayout.Width(80));
                 if (GUILayout.Button("✔", _buttonStyle, GUILayout.Width(30)))
                 {
                     _team1Name = _tempTeam1Name;
                     _isEditingTeam1 = false;
                 }
-
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
-                GUILayout.EndVertical();
             }
-            if (_spec == null && !_isEditingTeam1)
+            else if (_spec == null)
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
@@ -1229,53 +1382,51 @@ namespace CamMod
                     _tempTeam1Name = _team1Name;
                     _isEditingTeam1 = true;
                 }
-
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
             }
 
-            GUILayout.Label(_teamScore1.ToString(), new GUIStyle(_labelStyle)
-            {
-                fontSize = 36,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter,
-            });
+            GUILayout.Space(8);
+
+            // Team 1 Score centered
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            GUILayout.Label(_teamScore1.ToString(), _scoreStyle);
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
 
             GUILayout.EndVertical();
 
-            GUILayout.BeginVertical(GUILayout.Width(paddedRect.width / 2), GUILayout.Height(100));
+            //
+            // TEAM 2
+            //
+            GUILayout.BeginVertical(GUILayout.Width(paddedRect.width / 2), GUILayout.Height(120));
 
+            // Team 2 name
             GUILayout.Label(_team2Name, new GUIStyle(_labelStyle)
             {
-                fontSize = 36,
+                fontSize = 28,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
             });
 
             GUILayout.Space(5);
 
+            // Editing Team 2
             if (_isEditingTeam2)
             {
-                GUILayout.BeginVertical();
                 GUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
                 _tempTeam2Name = GUILayout.TextField(_tempTeam2Name, _textFieldStyle, GUILayout.Width(80));
-                GUILayout.FlexibleSpace();
-                GUILayout.EndHorizontal();
-
-                GUILayout.BeginHorizontal();
-                GUILayout.FlexibleSpace();
                 if (GUILayout.Button("✔", _buttonStyle, GUILayout.Width(30)))
                 {
                     _team2Name = _tempTeam2Name;
                     _isEditingTeam2 = false;
                 }
-
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
-                GUILayout.EndVertical();
             }
-            if (_spec == null && !_isEditingTeam2)
+            else if (_spec == null)
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
@@ -1284,19 +1435,21 @@ namespace CamMod
                     _tempTeam2Name = _team2Name;
                     _isEditingTeam2 = true;
                 }
-
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
             }
 
-            GUILayout.Label(_teamScore2.ToString(), new GUIStyle(_labelStyle)
-            {
-                fontSize = 36,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter,
-            });
+            GUILayout.Space(8);
+
+            // Team 2 Score centered
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            GUILayout.Label(_teamScore2.ToString(), _scoreStyle);
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
 
             GUILayout.EndVertical();
+
             GUILayout.EndHorizontal();
             GUILayout.EndArea();
         }
@@ -1306,11 +1459,12 @@ namespace CamMod
             _savedTimerStyle = new GUIStyle(_labelStyle) { fontSize = 25, alignment = TextAnchor.MiddleCenter };
 
             if (!_timer) return;
-            _timerForm = new Rect(Screen.width - 330f, 860, 320, 200);
+            _timerForm = new Rect(Screen.width - 330f, 850, 320, 200);
             
             GUI.Box(_timerForm, "Stopwatch", _windowStyle);
+            GUILayout.Space(3f);
 
-            Rect paddedRect = new Rect(_timerForm.x + 10f, _timerForm.y + 10f, _timerForm.width - 20f, _timerForm.height - 20f);
+            Rect paddedRect = new Rect(_timerForm.x + 10f, _timerForm.y + 15f, _timerForm.width - 20f, _timerForm.height - 20f);
 
             GUILayout.BeginArea(paddedRect);
             GUILayout.BeginHorizontal();
@@ -1485,7 +1639,7 @@ namespace CamMod
             GUILayout.BeginHorizontal();
             GUILayout.Label($"{label}: {value:F2}", new GUIStyle(GUI.skin.label)
             {
-                normal = { textColor = _labelTextColor },
+                normal = { textColor = LabelTextColor },
                 fontStyle = FontStyle.Bold,
             }, GUILayout.Width(120f));
             GUILayout.BeginVertical();
@@ -1523,11 +1677,17 @@ namespace CamMod
             {
                 TpcObject = new GameObject("TPCamera");
                 Tpc = TpcObject.AddComponent<Camera>();
-                
+                Tpc.cameraType = CameraType.Game;
+                var uacd = Tpc.GetComponent<UniversalAdditionalCameraData>() 
+                           ?? Tpc.gameObject.AddComponent<UniversalAdditionalCameraData>();
+
+                uacd.renderType = CameraRenderType.Base;
+                uacd.SetRenderer(0);
+                uacd.cameraStack.Clear();
+                uacd.allowXRRendering = false;
+
                 _editClipPlane = Mathf.Lerp(_editClipPlane, _desiredClipPlane, 0.075f);
                 Tpc.nearClipPlane = _editClipPlane;
-
-                Tpc.cameraType = CameraType.Preview;
 
                 PhotonNetworkController.Instance.disableAFKKick = true;
 
@@ -1543,6 +1703,18 @@ namespace CamMod
             if (!_deletedCamera && existingShoulderCam != null)
             {
                 existingShoulderCam.SetActive(false);
+                GameObject cmvObj = GameObject.Find("Player Objects/Third Person Camera/Shoulder Camera/CM vcam1");
+                GameObject cmObj = GameObject.Find("Player Objects/Third Person Camera/Shoulder Camera/CM vcam1/cm");
+                CinemachineVirtualCamera cmv = cmvObj.GetComponent<CinemachineVirtualCamera>();
+                CinemachinePipeline pipeline = cmObj.GetComponent<CinemachinePipeline>();
+                Cinemachine3rdPersonFollow follow = cmObj.GetComponent<Cinemachine3rdPersonFollow>();
+                CinemachineSameAsFollowTarget followTarget = cmObj.GetComponent<CinemachineSameAsFollowTarget>();
+                Destroy(pipeline);
+                Destroy(follow);
+                Destroy(followTarget);
+                Destroy(cmObj);
+                Destroy(cmv);
+                Destroy(cmvObj);
                 _deletedCamera = true;
             }
         }
@@ -1564,12 +1736,8 @@ namespace CamMod
             foreach (VRRig rig in GorillaParent.instance.vrrigs) {
                 if (rig == null)
                     return;
-
-                if (rig != localRig && !rig.isMyPlayer)
-                {
-                    rig.lerpValueBody = _rigLerp;
-                    rig.lerpValueFingers = _rigLerp;
-                }
+                rig.lerpValueBody = _rigLerp;
+                rig.lerpValueFingers = _rigLerp;
             }
         }
 
@@ -1633,6 +1801,15 @@ namespace CamMod
             {
                 var minimapCameraObj = GameObject.Find("MinimapCamera") ?? new GameObject("MinimapCamera");
                 _minimapCamera = minimapCameraObj.GetComponent<Camera>() ?? minimapCameraObj.AddComponent<Camera>();
+                _minimapCamera.cameraType = CameraType.Game;
+
+                var uacd = _minimapCamera.GetComponent<UniversalAdditionalCameraData>() 
+                           ?? _minimapCamera.gameObject.AddComponent<UniversalAdditionalCameraData>();
+
+                uacd.renderType = CameraRenderType.Base;
+                uacd.SetRenderer(0);
+                uacd.cameraStack.Clear();
+                uacd.allowXRRendering = false;
                 _minimapCamera.targetTexture = _minimapRenderTexture;
                 Plugin._minimapCamera.clearFlags = CameraClearFlags.Color;
                 Plugin._minimapCamera.backgroundColor = Color.clear;
@@ -1701,7 +1878,7 @@ namespace CamMod
         {
             if (TpcObject == null || _minimapCamera == null || GTPlayer.Instance == null || GTPlayer.Instance.headCollider == null)
                 return;
-            
+            Application.targetFrameRate = int.MaxValue;
             _desiredClipPlane = IsSpecNull ? _defaultClipping : _targetClipping;
             if (_spec != null)
             {
@@ -1722,7 +1899,7 @@ namespace CamMod
 
                 if ((targetPos - TpcObject.transform.position).sqrMagnitude > 10f)
                 {
-                    TpcObject.transform.position = Vector3.Lerp(TpcObject.transform.position, targetPos, 0.3f);
+                    TpcObject.transform.position = Vector3.Lerp(TpcObject.transform.position, targetPos, Time.deltaTime * 3f / Mathf.Max(_smoothing, 0.03f));
                 }
                 else
                 {
@@ -1920,7 +2097,7 @@ namespace CamMod
 	        {
 		        _lastMousePosition = Vector2.zero;
 	        }
-	        if (Mouse.current.leftButton.isPressed && !_fpc)
+	        /*if (Mouse.current.leftButton.isPressed && !_fpc)
 	        {
                 LayerMask layerMask = LayerMask.GetMask(new[] { "Gorilla Trigger", "Zone", "Gorilla Body" });
                 if (Camera.main != null)
@@ -1932,11 +2109,8 @@ namespace CamMod
                         GorillaTagger.Instance.rightHandTriggerCollider.transform.position = raycastHit.point;
                     }
                 }
-            }
-	        else
-	        {
-		        GorillaTagger.Instance.rightHandTransform.position = GorillaTagger.Instance.bodyCollider.transform.position;
-	        }
+            }*/
+            GorillaTagger.Instance.rightHandTransform.position = GorillaTagger.Instance.bodyCollider.transform.position;
 	        GorillaTagger.Instance.leftHandTransform.position = GorillaTagger.Instance.bodyCollider.transform.position;
 	        GTPlayer.Instance.bodyCollider.attachedRigidbody.velocity = Vector3.zero;
         }

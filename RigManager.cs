@@ -13,6 +13,11 @@ namespace CamMod
             return player.Creator;
         }
         
+        public static VRRig GetVRRigFromPlayer(NetPlayer p)
+        {
+            return GorillaGameManager.instance.FindPlayerVRRig(p);
+        }
+        
         public static VRRig GetVRRigFromPlayer(Player p)
         {
             return GorillaGameManager.instance.FindPlayerVRRig(p);
@@ -86,6 +91,26 @@ namespace CamMod
                 }
             }
             return found;
+        }
+        
+        public static VRRig GetClosestTagger(VRRig rig)
+        {
+            float num = float.MaxValue;
+            VRRig vrrig = null;
+            foreach (VRRig vrrig2 in GorillaParent.instance.vrrigs)
+            {
+                bool flag = vrrig2.mainSkin.material.name.Contains("infected (Instance)");
+                if (flag)
+                {
+                    bool flag2 = Vector3.Distance(rig.transform.position, vrrig2.transform.position) < num;
+                    if (flag2)
+                    {
+                        num = Vector3.Distance(rig.transform.position, vrrig2.transform.position);
+                        vrrig = vrrig2;
+                    }
+                }
+            }
+            return vrrig;
         }
     }
 }
