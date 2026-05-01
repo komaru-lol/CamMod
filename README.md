@@ -1,10 +1,10 @@
 <div align="center">
   <!-- 1. The Header Banner (Animated Waving Header) -->
-  <img src="https://vercel.app" />
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=200&section=header&text=Cam%20Mod&fontSize=80&fontAlignY=35" />
 
   <!-- 2. The Typing Feature List (Dynamic SVG) -->
   <a href="https://git.io/typing-svg">
-    <img src="https://herokuapp.com" alt="Typing SVG" />
+    <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=24&pause=1000&color=F7F7F7&center=true&vCenter=true&width=600&lines=Smooth+Motion+Camera;Configurable+Profiles;Gorilla+Tag+Optimized;Cinematic+Shots+Made+Easy" alt="Typing SVG" />
   </a>
 </div>
 
@@ -19,10 +19,9 @@
 * 🦍 **Gorilla Tag Optimized**: Built specifically for the game's unique movement.
 
 ### 📈 Activity Graph (The Snake)
-<!-- IMPORTANT: Replace YOUR_USERNAME and YOUR_REPO below with your actual info -->
-<img src="https://githubusercontent.com" alt="Snake Animation" />
+<img src="https://raw.githubusercontent.com/komru-lol/komru-lol/output/github-contribution-grid-snake.svg" alt="Snake Animation" />
 
 ---
 <div align="center">
-  <img src="https://vercel.app" />
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=120&section=footer" />
 </div>
