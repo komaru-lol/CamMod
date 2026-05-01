@@ -18,7 +18,7 @@
 * 🛠️ **Configurable**: Save and load custom camera profiles easily.
 * 🦍 **Gorilla Tag Optimized**: Built specifically for the game's unique movement.
 
-### 📈 Activity Graph (The Snake)
+### 📈 Activity Graph
 <img src="https://raw.githubusercontent.com/komru-lol/komru-lol/output/github-contribution-grid-snake.svg" alt="Snake Animation" />
 
 ---
