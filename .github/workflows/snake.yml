@@ -12,6 +12,8 @@ jobs:
   generate:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: write  # Add this to grant write permissions
     
     steps:
       - name: generate github-contribution-grid-snake.svg
