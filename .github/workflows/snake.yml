@@ -13,7 +13,7 @@ jobs:
       
       - uses: Platane/snk@v3
         with:
-          github_user_name: komru-lol
+          github_user_name: komaru-lol
           outputs: |
             dist/github-contribution-grid-snake.svg
             dist/github-contribution-grid-snake-dark.svg?palette=github-dark
