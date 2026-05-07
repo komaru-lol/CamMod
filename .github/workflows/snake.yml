@@ -1,23 +1,9 @@
-name: Generate Snake
-
-on:
-  schedule:
-    # Runs at 00:00 UTC every day
-    - cron: "0 0 * * *"
-  workflow_dispatch: # Allows manual triggers
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # Needed to push to the output branch
-    
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Generate Snake Files
-        uses: Platane/snk@v3
+        uses: Platane/snk@v3.4.1
         with:
           github_user_name: komaru-lol
           outputs: |
@@ -25,7 +11,7 @@ jobs:
             dist/github-contribution-grid-snake-dark.svg?palette=github-dark
 
       - name: Deploy to Output Branch
-        uses: crazy-max/ghaction-github-pages@v4
+        uses: crazy-max/ghaction-github-pages@v5
         with:
           target_branch: output
           build_dir: dist
