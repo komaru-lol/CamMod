@@ -19,7 +19,7 @@
 * 🦍 **Gorilla Tag Optimized**: Built specifically for the game's unique movement.
 
 ### 📈 Activity Graph
-<img src="https://raw.githubusercontent.com/komaru-lol/komaru-lol/output/github-contribution-grid-snake.svg" alt="Snake Animation" />
+<img src="https://raw.githubusercontent.com/komaru-lol/CamMod/refs/heads/output/github-contribution-grid-snake-dark.svg" alt="Snake Animation" />
 
 ---
 <div align="center">
