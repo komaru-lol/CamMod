@@ -14,7 +14,7 @@
 **Cam Mod** is a high-performance camera modification designed to enhance visual fidelity and user control. Whether you're capturing cinematic shots or looking for a more immersive gameplay perspective, Cam Mod provides the tools to redefine your view in **Gorilla Tag**.
 
 ### 🚀 Key Features
-* 🎥 **Smooth Motion**: Cinematic smoothing for every shot.
+* 🎥 **Smooth Motion**: Advanced smoothing for gameplay recording and spectating.
 * 🛠️ **Configurable**: Save and load custom camera profiles easily.
 * 🦍 **Gorilla Tag Optimized**: Built specifically for the game's unique movement.
 
